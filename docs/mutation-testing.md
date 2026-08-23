@@ -75,3 +75,41 @@ Số mutant còn sống chủ yếu thuộc ba nhóm **không thể giết bằn
 Mã chỉ phục vụ test (`Word::check_invariants`, `Engine::self_check`) được
 đánh dấu `MUTATION-SKIP-BEGIN/END` và loại khỏi phạm vi: gieo lỗi vào đó chỉ
 làm phép kiểm tra yếu đi, mà bộ test thì không thể tự phát hiện điều đó.
+
+## Đối chiếu với độ phủ (coverage)
+
+Đo bằng gcovr trên chính bộ test đó:
+
+```sh
+cmake -S . -B build-cov -DCMAKE_BUILD_TYPE=Debug \
+  -DCMAKE_CXX_FLAGS="--coverage -O0" -DCMAKE_EXE_LINKER_FLAGS="--coverage"
+cmake --build build-cov -j && ./build-cov/engine/hodion_engine_tests
+gcovr --root . --filter 'engine/src/' --filter 'engine/include/' --txt --branches
+```
+
+| Thước đo            | Trước | Sau   |
+|---------------------|-------|-------|
+| Dòng (line)         | 97%   | 99%   |
+| Nhánh (branch)      | 80%   | 81%   |
+| Mutation            | 73,0% | 83,4% |
+
+Ba con số này nói ba chuyện khác nhau, và đó chính là lý do không nên nhìn
+mỗi coverage: **bộ test cũ đã phủ 97% số dòng nhưng mutation vẫn tìm ra 130
+lỗ hổng** — dòng code có chạy không có nghĩa là test sẽ kêu khi nó sai.
+
+Coverage vẫn có ích ở chỗ khác: nó chỉ thẳng ra những đoạn *chưa từng chạy*,
+rẻ hơn nhiều so với chạy mutation. Nhờ nó mà phát hiện `hodion_engine_backspace`
+— một hàm trong C ABI mà bản port macOS/Linux sẽ dùng — chưa có test nào gọi
+tới, cùng vài nhánh khác (phím `7` của VNI gặp nguyên âm mang dấu trăng, cứu
+dấu thanh trong âm tiết có phụ âm đầu, gõ lặp dấu trên `gi`).
+
+Sáu dòng còn lại chưa phủ đều là **chốt chặn phòng thủ không tới được**
+(nhánh xóa ô không phải nguyên âm, `default:` của switch đã liệt kê đủ, lệnh
+`return` sau switch vét cạn). Giữ lại vì rẻ và an toàn, không cố nặn test
+giả để làm đẹp con số.
+
+Nhánh (branch) thấp hơn dòng nhiều là chuyện bình thường: mỗi điều kiện được
+tính cả hai chiều, kể cả các chốt chặn phòng thủ vốn chỉ đi một chiều.
+
+CI có đặt ngưỡng sàn (dòng 97%, nhánh 78%) để độ phủ không tụt dần theo thời
+gian.

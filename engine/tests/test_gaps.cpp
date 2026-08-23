@@ -2,6 +2,8 @@
 // vào mà không test nào phát hiện thì thêm test ở đây.
 //
 // Chạy lại bằng:  python3 tools/mutation_test.py
+#include <utility>
+
 #include "hodion/engine_c.h"
 #include "test_util.h"
 #include "vnlexi.h"  // white-box: kiểm tra thẳng bảng ký tự
@@ -14,6 +16,12 @@ std::string u8(const std::u32string& s) { return hodion::utf::to_utf8(s); }
 
 void feed(Engine& e, const std::string& keys) {
   for (char c : keys) e.process_char(static_cast<char32_t>(c));
+}
+
+std::string no_free(const std::string& keys) {
+  hodion::Config cfg;
+  cfg.free_marking = false;
+  return type_word(keys, cfg);
 }
 
 std::string type_sentence(const std::string& keys, hodion::Config cfg) {
@@ -80,6 +88,42 @@ void run_gap_tests() {
     const auto r = e.process_char(U'[');
     EXPECT_TRUE(r.action == Engine::Result::Action::Commit);
     EXPECT_EQ(u8(r.text), "ứ[");
+  }
+
+  // ---- Các nhánh coverage chỉ ra là chưa từng chạy ------------------------
+  {
+    // Cứu dấu thanh khi âm tiết có cả phụ âm đầu (nhánh CV, khác ca chỉ có
+    // nguyên âm ở trên).
+    Engine e;
+    feed(e, "t]s[");
+    EXPECT_EQ(u8(e.composition()), "tướ");
+    const auto r = e.process_char(U'[');
+    EXPECT_EQ(u8(r.text), "tứ[");
+  }
+  EXPECT_EQ(telex("thuoww"), "thươ");   // uơ + móc lần nữa → ươ
+  // VNI: phím 7 (chỉ ơ/ư) gặp nguyên âm đang mang dấu trăng thì không hủy
+  // được — phải để nguyên và nhả ra chữ số.
+  EXPECT_EQ(vni("a87"), "ă7");
+  EXPECT_EQ(vni("hoa87"), "hoă7");
+  EXPECT_EQ(vni("a88"), "a8");          // đúng phím 8 thì hủy được
+  EXPECT_EQ(no_free("muwaw"), "mưaw");  // tắt gõ dấu tự do: không hủy móc ở giữa
+  EXPECT_EQ(telex("giff"), "gif");      // gõ lặp huyền trên gi → bỏ dấu
+  EXPECT_EQ(telex("ginff"), "ginf");
+  {
+    // Từ kết thúc bằng phụ âm đầu (dạng C) tuy có biến đổi nhưng vẫn là
+    // tiếng Việt → không khôi phục phím.
+    hodion::Config cfg;
+    cfg.restore_non_vn = true;
+    EXPECT_EQ(type_sentence("gifn ", cfg), "gìn ");
+    EXPECT_EQ(type_sentence("gif ", cfg), "gì ");
+  }
+  {
+    // Engine gán-di-chuyển được (host có thể giữ trong container).
+    Engine a;
+    feed(a, "vieejt");
+    Engine b;
+    b = std::move(a);
+    EXPECT_EQ(u8(b.composition()), "việt");
   }
 
   // ---- Ngưỡng độ dài từ ---------------------------------------------------
@@ -210,6 +254,38 @@ void run_gap_tests() {
     char one[1] = {'x'};
     hodion_engine_composition(e, one, sizeof(one));
     EXPECT_TRUE(one[0] == '\0');
+
+    // Backspace qua C API — cửa ngõ mà bản port macOS/Linux sẽ dùng.
+    hodion_engine_reset(e);
+    for (const char* p = "vieejt"; *p; ++p) {
+      hodion_engine_key(e, static_cast<uint32_t>(*p), out, sizeof(out));
+    }
+    EXPECT_EQ(std::string(out), "việt");
+    int action = hodion_engine_backspace(e, out, sizeof(out));
+    EXPECT_TRUE(action == HODION_ACTION_COMPOSING);
+    EXPECT_EQ(std::string(out), "việ");
+    for (int i = 0; i < 3; ++i) hodion_engine_backspace(e, out, sizeof(out));
+    EXPECT_TRUE(hodion_engine_composing(e) == 0);
+    action = hodion_engine_backspace(e, out, sizeof(out));
+    EXPECT_TRUE(action == HODION_ACTION_NONE);
+
+    // Các cờ còn lại, và giá trị cờ không hợp lệ thì không đụng gì.
+    hodion_engine_set_flag(e, HODION_FLAG_FREE_MARKING, 0);
+    for (const char* p = "dund"; *p; ++p) {
+      hodion_engine_key(e, static_cast<uint32_t>(*p), out, sizeof(out));
+    }
+    EXPECT_EQ(std::string(out), "dund");
+    hodion_engine_reset(e);
+    hodion_engine_set_flag(e, HODION_FLAG_FREE_MARKING, 1);
+
+    hodion_engine_set_flag(e, HODION_FLAG_SPELL_CHECK, 0);
+    hodion_engine_set_flag(e, HODION_FLAG_RESTORE_NON_VN, 1);
+    hodion_engine_set_flag(e, 999, 1);  // cờ lạ: bỏ qua, không đổi gì
+    for (const char* p = "did"; *p; ++p) {
+      hodion_engine_key(e, static_cast<uint32_t>(*p), out, sizeof(out));
+    }
+    EXPECT_EQ(std::string(out), "đi");
+    hodion_engine_reset(e);
 
     char guard[2] = {'x', 'y'};
     hodion_engine_composition(e, guard, 0);   // cỡ 0: không được đụng vào

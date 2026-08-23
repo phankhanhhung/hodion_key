@@ -23,6 +23,28 @@ jobs:
           HODION_FUZZ_STATS: 1
         run: ./build/engine/hodion_engine_tests
 
+  coverage:
+    name: Độ phủ (engine)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Cài gcovr
+        run: pipx install gcovr || pip install gcovr
+      - name: Build có đo phủ
+        run: |
+          cmake -S . -B build-cov -DCMAKE_BUILD_TYPE=Debug \
+            -DCMAKE_CXX_FLAGS="--coverage -O0" \
+            -DCMAKE_EXE_LINKER_FLAGS="--coverage"
+          cmake --build build-cov -j
+      - name: Chạy test
+        run: ./build-cov/engine/hodion_engine_tests
+      - name: Báo cáo (có ngưỡng sàn để không tụt về sau)
+        run: |
+          gcovr --root . --filter 'engine/src/' --filter 'engine/include/' \
+            --txt --branches
+          gcovr --root . --filter 'engine/src/' --filter 'engine/include/' \
+            --fail-under-line 97 --fail-under-branch 78
+
   tsf-windows:
     name: TSF DLL (Windows / MSVC)
     runs-on: windows-latest

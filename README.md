@@ -54,12 +54,14 @@ tái hiện. Chạy soak lâu hơn và xem thống kê:
 HODION_FUZZ_ROUNDS=200000 HODION_FUZZ_STATS=1 ./build/engine/hodion_engine_tests
 ```
 
-Chất lượng bộ test được đo bằng **mutation testing** (gieo lỗi vào engine
-rồi xem test có bắt không) — điểm hiện tại 83,4%, xem
+Chất lượng bộ test: độ phủ **99% dòng / 81% nhánh**, và điểm **mutation
+testing 83,4%** (gieo lỗi vào engine rồi xem test có bắt không — thước đo
+thật, vì phủ 97% dòng mà mutation vẫn từng tìm ra 130 lỗ hổng). Chi tiết ở
 [docs/mutation-testing.md](docs/mutation-testing.md):
 
 ```sh
-python3 tools/mutation_test.py
+python3 tools/mutation_test.py                      # mutation testing
+gcovr --root . --filter 'engine/src/' --txt --branches   # độ phủ
 ```
 
 Thử engine ngay trên terminal:

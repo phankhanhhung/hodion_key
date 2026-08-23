@@ -4,3 +4,4 @@ out/
 .vs/
 .cache/
 CMakeUserPresets.json
+build-cov/
