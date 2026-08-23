@@ -72,7 +72,11 @@ class Engine {
 
   bool composing() const;
   std::u32string composition() const;  // chuỗi hiển thị hiện tại
-  std::u32string raw() const;          // chuỗi phím thô của từ (Esc khôi phục)
+  // Chuỗi phím thô của từ, dùng cho Esc ("trả lại đúng chữ tao gõ"). Sau khi
+  // người dùng bấm Backspace thì không dựng lại được nữa (một ký tự có thể
+  // do nhiều phím tạo ra) nên hàm này trả về chính chuỗi đang hiển thị —
+  // Esc khi đó chỉ kết thúc composition mà không đổi chữ.
+  std::u32string raw() const;
   std::u32string commit();             // trả về chuỗi hiển thị rồi reset
   void reset();
 

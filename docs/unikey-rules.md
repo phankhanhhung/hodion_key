@@ -122,6 +122,12 @@ Trong vần (đã xác định sau phụ âm đầu, kể cả qu/gi):
   từ, nếu từ không hợp lệ (dạng NonVn, vần chưa trọn, tổ hợp sai, thanh sai
   với âm cuối tắc) và đã có phím bị biến đổi → trả lại đúng chuỗi phím thô
   (boxing → bõing → "boxing " khi bật).
+- Nhật ký phím thô chỉ đáng tin **khi từ chưa bị Backspace**: một ký tự hiển
+  thị có thể do nhiều phím tạo ra (vieejt = 6 phím → 4 ký tự), nên sau khi
+  xóa thì không dựng lại được chuỗi đã gõ. Khi đó `raw()` trả về chính chữ
+  đang hiển thị (Esc chỉ kết thúc composition) và khôi phục tự động không
+  chạy — thà không khôi phục còn hơn khôi phục ra chuỗi cụt. Xóa hết từ thì
+  nhật ký sạch và dùng lại được cho từ kế tiếp.
 
 ## Khác biệt có chủ đích so với UniKey
 

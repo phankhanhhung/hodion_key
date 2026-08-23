@@ -110,7 +110,9 @@ HRESULT CTextService::HandleEatenKey(ITfContext* pic, WPARAM wParam,
   }
 
   if (wParam == VK_ESCAPE) {
-    // Esc: trả lại đúng chuỗi phím thô (hủy mọi biến đổi tiếng Việt).
+    // Esc: trả lại đúng chuỗi phím thô (hủy mọi biến đổi tiếng Việt). Nếu từ
+    // đã bị sửa bằng Backspace thì engine trả về chính chữ đang hiển thị,
+    // nên Esc chỉ kết thúc composition.
     const std::wstring rawText = HodionToWide(engine_.raw());
     engine_.reset();
     return RequestSyncEdit(pic, [&](TfEditCookie ec) {

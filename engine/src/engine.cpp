@@ -108,6 +108,10 @@ struct Engine::Impl {
   Word word;
   std::vector<char32_t> keys;   // phím thô của từ hiện tại
   bool any_converted = false;   // có phím nào gây biến đổi chưa
+  // Nhật ký phím còn tả đúng từ đang hiển thị không. Backspace xóa một ký
+  // tự, mà một ký tự có thể do nhiều phím tạo ra (vieejt → 6 phím, 4 ký
+  // tự), nên sau khi xóa ta không thể dựng lại chuỗi phím đã gõ.
+  bool keys_valid = true;
 
   static constexpr size_t kMaxCells = 40;
 
@@ -115,13 +119,15 @@ struct Engine::Impl {
     word.clear();
     keys.clear();
     any_converted = false;
+    keys_valid = true;
   }
 
   // Chuỗi chốt từ: khôi phục phím thô nếu bật tùy chọn và từ không phải
   // tiếng Việt hợp lệ (mirror hành vi autoNonVnRestore của UniKey).
   std::u32string commit_text() const {
     if (cfg.restore_non_vn && cfg.spell_check && !word.single_mode() &&
-        any_converted && word.is_non_vn(cfg) && word.has_vn_mark()) {
+        keys_valid && any_converted && word.is_non_vn(cfg) &&
+        word.has_vn_mark()) {
       return std::u32string(keys.begin(), keys.end());
     }
     return word.render();
@@ -154,6 +160,7 @@ bool Engine::composing() const { return !impl_->word.empty(); }
 std::u32string Engine::composition() const { return impl_->word.render(); }
 
 std::u32string Engine::raw() const {
+  if (!impl_->keys_valid) return impl_->word.render();
   return std::u32string(impl_->keys.begin(), impl_->keys.end());
 }
 
@@ -230,7 +237,7 @@ Engine::Result Engine::process_char(char32_t ch) {
   }
   im.word.maybe_restart_word(cfg);
 
-  im.keys.push_back(ch);
+  if (im.keys_valid) im.keys.push_back(ch);
   if (out == KeyOutcome::Applied || out == KeyOutcome::Reverted) {
     im.any_converted = true;
   }
@@ -255,7 +262,11 @@ Engine::Result Engine::process_backspace() {
   if (im.word.empty()) return Result{};
 
   im.word.backspace(im.cfg);
-  if (!im.keys.empty()) im.keys.pop_back();
+  // Bỏ nhật ký phím: nó không còn khớp với chữ đang hiển thị. Nếu xóa hết
+  // thì coi như bắt đầu lại sạch sẽ và nhật ký dùng được cho từ kế tiếp.
+  im.keys.clear();
+  im.any_converted = false;
+  im.keys_valid = im.word.empty();
 
   Result r;
   r.action = Result::Action::Composing;
