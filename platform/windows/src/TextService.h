@@ -4,17 +4,19 @@
 #include <string>
 
 #include "HodionTsf.h"
+#include "Settings.h"
 #include "hodion/engine.h"
+
+std::wstring HodionToWide(const std::u32string& s);
 
 // Text service chính: một instance được TSF tạo cho mỗi thread có bàn phím
 // HodionKey được kích hoạt. Toàn bộ thao tác sửa văn bản đi qua edit session
 // đồng bộ xin từ key event sink — đúng mô hình luồng của TSF.
-std::wstring HodionToWide(const std::u32string& s);
-
 class CTextService : public ITfTextInputProcessorEx,
                      public ITfThreadMgrEventSink,
                      public ITfKeyEventSink,
                      public ITfCompositionSink,
+                     public ITfCompartmentEventSink,
                      public ITfDisplayAttributeProvider {
  public:
   CTextService();
@@ -55,6 +57,9 @@ class CTextService : public ITfTextInputProcessorEx,
   STDMETHODIMP OnCompositionTerminated(TfEditCookie ecWrite,
                                        ITfComposition* pComposition) override;
 
+  // ITfCompartmentEventSink — người dùng bật/tắt IME từ thanh ngôn ngữ.
+  STDMETHODIMP OnChange(REFGUID rguid) override;
+
   // ITfDisplayAttributeProvider
   STDMETHODIMP EnumDisplayAttributeInfo(
       IEnumTfDisplayAttributeInfo** ppEnum) override;
@@ -83,12 +88,21 @@ class CTextService : public ITfTextInputProcessorEx,
   void FinalizeComposition();
   void AbandonComposition();
 
-  void LoadSettings();
+  // --- Cấu hình & bật/tắt tiếng Việt ---
+  void ApplySettings(const HodionSettings& s);
+  void ReloadSettingsIfChanged();
+  void SetVietnamese(bool on, bool persist);
+  void RegisterToggleKey();
+  void UnregisterToggleKey();
+  // Đồng bộ compartment OPENCLOSE (thanh ngôn ngữ, chỉ báo hệ thống).
+  void PushOpenCloseCompartment();
+  HRESULT GetOpenCloseCompartment(ITfCompartment** out) const;
 
   LONG refCount_ = 1;
   com_ptr<ITfThreadMgr> threadMgr_;
   TfClientId clientId_ = TF_CLIENTID_NULL;
   DWORD threadMgrEventSinkCookie_ = TF_INVALID_COOKIE;
+  DWORD openCloseSinkCookie_ = TF_INVALID_COOKIE;
   bool keySinkAdvised_ = false;
 
   com_ptr<ITfComposition> composition_;
@@ -96,4 +110,10 @@ class CTextService : public ITfTextInputProcessorEx,
   TfGuidAtom displayAttributeAtom_ = TF_INVALID_GUIDATOM;
 
   hodion::Engine engine_;
+  SettingsWatcher watcher_;
+  ToggleKey toggleKey_{};
+  bool toggleRegistered_ = false;
+  bool vietnamese_ = true;
+  // Chặn vòng lặp khi chính ta ghi vào compartment OPENCLOSE.
+  bool updatingCompartment_ = false;
 };

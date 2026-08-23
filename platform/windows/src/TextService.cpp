@@ -1,5 +1,7 @@
 #include "TextService.h"
 
+#include <cwchar>
+
 #include "EditSession.h"
 #include "hodion/utf.h"
 
@@ -35,6 +37,8 @@ STDMETHODIMP CTextService::QueryInterface(REFIID riid, void** ppv) {
     *ppv = static_cast<ITfKeyEventSink*>(this);
   } else if (IsEqualIID(riid, IID_ITfCompositionSink)) {
     *ppv = static_cast<ITfCompositionSink*>(this);
+  } else if (IsEqualIID(riid, kIID_ITfCompartmentEventSink)) {
+    *ppv = static_cast<ITfCompartmentEventSink*>(this);
   } else if (IsEqualIID(riid, kIID_ITfDisplayAttributeProvider)) {
     *ppv = static_cast<ITfDisplayAttributeProvider*>(this);
   } else {
@@ -66,7 +70,9 @@ STDMETHODIMP CTextService::ActivateEx(ITfThreadMgr* ptim, TfClientId tid,
 
   threadMgr_.copy_from(ptim);
   clientId_ = tid;
-  LoadSettings();
+
+  ApplySettings(LoadHodionSettings());
+  watcher_.start();
 
   // Theo dõi thay đổi focus để chốt composition dở khi người dùng rời ô nhập.
   {
@@ -102,13 +108,41 @@ STDMETHODIMP CTextService::ActivateEx(ITfThreadMgr* ptim, TfClientId tid,
     }
   }
 
+  // Phím chuyển Việt/Anh + theo dõi compartment bật/tắt của hệ thống.
+  RegisterToggleKey();
+  {
+    com_ptr<ITfCompartment> comp;
+    if (SUCCEEDED(GetOpenCloseCompartment(comp.put())) && comp) {
+      com_ptr<ITfSource> source;
+      if (SUCCEEDED(comp->QueryInterface(IID_ITfSource, source.put_void()))) {
+        source->AdviseSink(kIID_ITfCompartmentEventSink,
+                           static_cast<ITfCompartmentEventSink*>(this),
+                           &openCloseSinkCookie_);
+      }
+    }
+  }
+  PushOpenCloseCompartment();
+
   return S_OK;
 }
 
 STDMETHODIMP CTextService::Deactivate() {
   FinalizeComposition();
+  watcher_.stop();
+  UnregisterToggleKey();
 
   if (threadMgr_) {
+    if (openCloseSinkCookie_ != TF_INVALID_COOKIE) {
+      com_ptr<ITfCompartment> comp;
+      if (SUCCEEDED(GetOpenCloseCompartment(comp.put())) && comp) {
+        com_ptr<ITfSource> source;
+        if (SUCCEEDED(comp->QueryInterface(IID_ITfSource,
+                                           source.put_void()))) {
+          source->UnadviseSink(openCloseSinkCookie_);
+        }
+      }
+      openCloseSinkCookie_ = TF_INVALID_COOKIE;
+    }
     if (keySinkAdvised_) {
       com_ptr<ITfKeystrokeMgr> keystrokeMgr;
       if (SUCCEEDED(threadMgr_->QueryInterface(IID_ITfKeystrokeMgr,
@@ -144,6 +178,7 @@ STDMETHODIMP CTextService::OnSetFocus(ITfDocumentMgr* /*pdimFocus*/,
                                       ITfDocumentMgr* /*pdimPrevFocus*/) {
   // Chuyển ô nhập/tài liệu: từ đang gõ dở được chốt tại chỗ.
   FinalizeComposition();
+  ReloadSettingsIfChanged();
   return S_OK;
 }
 
@@ -275,4 +310,124 @@ void CTextService::AbandonComposition() {
   composition_.reset();
   compositionContext_.reset();
   engine_.reset();
+}
+
+// ---- Cấu hình & bật/tắt tiếng Việt ---------------------------------------
+
+void CTextService::ApplySettings(const HodionSettings& s) {
+  engine_.set_config(s.engine);
+  vietnamese_ = s.vietnamese_on;
+
+  if (!(s.toggle == toggleKey_)) {
+    UnregisterToggleKey();
+    toggleKey_ = s.toggle;
+    if (threadMgr_) RegisterToggleKey();
+  }
+}
+
+void CTextService::ReloadSettingsIfChanged() {
+  if (!watcher_.poll()) return;
+
+  const HodionSettings s = LoadHodionSettings();
+  const bool was_on = vietnamese_;
+  // Đang gõ dở mà cấu hình đổi: chốt chữ trên màn hình trước khi nạp luật mới.
+  FinalizeComposition();
+  ApplySettings(s);
+  if (vietnamese_ != was_on) PushOpenCloseCompartment();
+}
+
+HRESULT CTextService::GetOpenCloseCompartment(ITfCompartment** out) const {
+  if (!out) return E_INVALIDARG;
+  *out = nullptr;
+  if (!threadMgr_) return E_UNEXPECTED;
+
+  com_ptr<ITfCompartmentMgr> mgr;
+  HRESULT hr = threadMgr_->QueryInterface(kIID_ITfCompartmentMgr,
+                                          mgr.put_void());
+  if (FAILED(hr)) return hr;
+  return mgr->GetCompartment(GUID_COMPARTMENT_KEYBOARD_OPENCLOSE, out);
+}
+
+void CTextService::PushOpenCloseCompartment() {
+  com_ptr<ITfCompartment> comp;
+  if (FAILED(GetOpenCloseCompartment(comp.put())) || !comp) return;
+
+  VARIANT var;
+  VariantInit(&var);
+  var.vt = VT_I4;
+  var.lVal = vietnamese_ ? 1 : 0;
+
+  updatingCompartment_ = true;
+  comp->SetValue(clientId_, &var);
+  updatingCompartment_ = false;
+}
+
+void CTextService::SetVietnamese(bool on, bool persist) {
+  if (vietnamese_ == on) return;
+  FinalizeComposition();
+  vietnamese_ = on;
+  PushOpenCloseCompartment();
+  if (persist) {
+    SaveHodionVietnameseOn(on);
+    // Ghi registry sẽ kích hoạt watcher của chính ta. Nuốt lượt báo ngay khi
+    // có thể; registry báo bất đồng bộ nên đôi lúc vẫn lọt một lần nạp lại —
+    // vô hại vì giá trị nạp về đúng bằng giá trị vừa ghi.
+    watcher_.poll();
+  }
+}
+
+void CTextService::RegisterToggleKey() {
+  // Không bao giờ chiếm một phím trần — nó sẽ biến mất khỏi bàn phím.
+  if (toggleRegistered_ || !threadMgr_ || !toggleKey_.valid()) return;
+
+  com_ptr<ITfKeystrokeMgr> keystrokeMgr;
+  if (FAILED(threadMgr_->QueryInterface(IID_ITfKeystrokeMgr,
+                                        keystrokeMgr.put_void()))) {
+    return;
+  }
+
+  TF_PRESERVEDKEY key;
+  key.uVKey = toggleKey_.vk;
+  key.uModifiers = toggleKey_.mods;
+  if (SUCCEEDED(keystrokeMgr->PreserveKey(
+          clientId_, GUID_HodionKeyToggle, &key, kToggleKeyDescription,
+          static_cast<ULONG>(wcslen(kToggleKeyDescription))))) {
+    toggleRegistered_ = true;
+  }
+}
+
+void CTextService::UnregisterToggleKey() {
+  if (!toggleRegistered_ || !threadMgr_) {
+    toggleRegistered_ = false;
+    return;
+  }
+  com_ptr<ITfKeystrokeMgr> keystrokeMgr;
+  if (SUCCEEDED(threadMgr_->QueryInterface(IID_ITfKeystrokeMgr,
+                                           keystrokeMgr.put_void()))) {
+    TF_PRESERVEDKEY key;
+    key.uVKey = toggleKey_.vk;
+    key.uModifiers = toggleKey_.mods;
+    keystrokeMgr->UnpreserveKey(GUID_HodionKeyToggle, &key);
+  }
+  toggleRegistered_ = false;
+}
+
+// ---- ITfCompartmentEventSink ----------------------------------------------
+
+STDMETHODIMP CTextService::OnChange(REFGUID rguid) {
+  if (updatingCompartment_) return S_OK;
+  if (!IsEqualGUID(rguid, GUID_COMPARTMENT_KEYBOARD_OPENCLOSE)) return S_OK;
+
+  com_ptr<ITfCompartment> comp;
+  if (FAILED(GetOpenCloseCompartment(comp.put())) || !comp) return S_OK;
+
+  VARIANT var;
+  VariantInit(&var);
+  if (SUCCEEDED(comp->GetValue(&var)) && var.vt == VT_I4) {
+    // Hệ thống (thanh ngôn ngữ, ứng dụng) bật/tắt IME — theo trạng thái đó
+    // nhưng không ghi đè lựa chọn đã lưu của người dùng.
+    SetVietnamese(var.lVal != 0, /*persist=*/false);
+  }
+  VariantClear(&var);
+  return S_OK;
 }

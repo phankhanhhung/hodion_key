@@ -11,11 +11,13 @@
 extern const CLSID CLSID_HodionKeyService;
 extern const GUID GUID_HodionKeyProfile;
 extern const GUID GUID_HodionKeyDisplayAttributeInput;
+extern const GUID GUID_HodionKeyToggle;
 
 // vi-VN
 constexpr LANGID kHodionLangId = MAKELANGID(LANG_VIETNAMESE, SUBLANG_DEFAULT);
 
 constexpr WCHAR kServiceDescription[] = L"HodionKey";
+constexpr WCHAR kToggleKeyDescription[] = L"HodionKey: bat/tat tieng Viet";
 
 // ---- Trạng thái module ----------------------------------------------------
 extern HINSTANCE g_hInst;

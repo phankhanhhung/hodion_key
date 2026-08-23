@@ -14,3 +14,8 @@ const GUID GUID_HodionKeyProfile = {
 // {5C8D94A7-1E3F-4D62-B077-C94E288A63F1}
 const GUID GUID_HodionKeyDisplayAttributeInput = {
     0x5c8d94a7, 0x1e3f, 0x4d62, {0xb0, 0x77, 0xc9, 0x4e, 0x28, 0x8a, 0x63, 0xf1}};
+
+// Preserved key: phím chuyển Việt/Anh.
+// {0B5E7C46-9D31-4A88-B3F0-6E2A47D1C58C}
+const GUID GUID_HodionKeyToggle = {
+    0x0b5e7c46, 0x9d31, 0x4a88, {0xb3, 0xf0, 0x6e, 0x2a, 0x47, 0xd1, 0xc5, 0x8c}};

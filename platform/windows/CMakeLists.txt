@@ -29,4 +29,54 @@ target_compile_definitions(hodionkey_tsf PRIVATE UNICODE _UNICODE)
 
 if(MSVC)
   target_compile_options(hodionkey_tsf PRIVATE /utf-8 /W4)
+elseif(MINGW)
+  # Không bắt người dùng cài runtime MinGW kèm theo.
+  target_link_options(hodionkey_tsf PRIVATE -static-libgcc -static-libstdc++)
 endif()
+
+# App cấu hình — hộp thoại Win32 thuần, đọc/ghi cùng khoá registry.
+add_executable(hodionkey_config WIN32
+  config/ConfigApp.cpp
+  config/ConfigApp.rc
+  src/Settings.cpp
+)
+
+set_target_properties(hodionkey_config PROPERTIES
+  OUTPUT_NAME "HodionKeyConfig"
+)
+
+target_include_directories(hodionkey_config PRIVATE src config)
+
+target_link_libraries(hodionkey_config PRIVATE
+  hodion_engine
+  comctl32
+  advapi32
+  user32
+)
+
+target_compile_definitions(hodionkey_config PRIVATE UNICODE _UNICODE)
+
+if(MSVC)
+  target_compile_options(hodionkey_config PRIVATE /utf-8 /W4)
+elseif(MINGW)
+  # Chọn entry point wWinMain (MSVC tự làm khi có UNICODE).
+  target_compile_options(hodionkey_config PRIVATE -municode)
+  target_link_options(hodionkey_config PRIVATE
+    -municode -static-libgcc -static-libstdc++)
+endif()
+
+# Kiểm thử tầng Windows: vòng đọc/ghi registry + theo dõi thay đổi cấu hình.
+add_executable(hodionkey_settings_test
+  tests/settings_test.cpp
+  src/Settings.cpp
+)
+target_include_directories(hodionkey_settings_test PRIVATE src)
+target_link_libraries(hodionkey_settings_test PRIVATE hodion_engine advapi32)
+target_compile_definitions(hodionkey_settings_test PRIVATE UNICODE _UNICODE)
+if(MSVC)
+  target_compile_options(hodionkey_settings_test PRIVATE /utf-8 /W4)
+elseif(MINGW)
+  target_link_options(hodionkey_settings_test PRIVATE
+    -static-libgcc -static-libstdc++)
+endif()
+add_test(NAME windows_settings COMMAND hodionkey_settings_test)

@@ -14,16 +14,20 @@ với **engine gõ tách rời hoàn toàn** để port sang macOS/Linux.
 - Đặt dấu thanh đúng chính tả (`qu`/`gi`, `ươ`, `uyê`…), kiểu cũ (`hòa`)
   lẫn kiểu mới (`hoà`); tùy chọn tự khôi phục từ không phải tiếng Việt.
 - Ký tự Unicode dựng sẵn (NFC) — hiển thị đúng ở mọi ứng dụng.
+- **Phím chuyển Việt/Anh** (mặc định `Ctrl + Space`) và **app cấu hình** —
+  đổi tùy chọn là có hiệu lực ngay, không phải khởi động lại ứng dụng đang gõ.
 - Composition chuẩn TSF: đoạn đang gõ gạch chân, Backspace hoàn tác từng
   phím, Esc trả lại chuỗi phím thô, Enter/Tab/chuột chốt từ tự nhiên.
 
 ## Cấu trúc
 
 ```
-engine/            Lõi bộ gõ — C++17 thuần, không phụ thuộc OS + C ABI (FFI)
-platform/windows/  TSF text service (COM DLL, không ATL/WRL)
-docs/              Kiến trúc & quyết định thiết kế
-cmake/             Toolchain cross-compile MinGW (CI trên Linux)
+engine/                   Lõi bộ gõ — C++17 thuần, không phụ thuộc OS + C ABI
+platform/windows/src      TSF text service (COM DLL, không ATL/WRL)
+platform/windows/config   App cấu hình (hộp thoại Win32 thuần)
+platform/windows/tests    Kiểm thử tầng Windows (registry, watcher)
+docs/                     Kiến trúc, đặc tả bộ luật UniKey
+cmake/                    Toolchain cross-compile MinGW (CI trên Linux)
 ```
 
 Chi tiết thiết kế: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
@@ -54,7 +58,8 @@ cmake -S . -B build -A x64
 cmake --build build --config Release
 ```
 
-Kết quả: `build\platform\windows\Release\HodionKey.dll`.
+Kết quả: `build\platform\windows\Release\HodionKey.dll` (text service) và
+`HodionKeyConfig.exe` (app cấu hình).
 
 (Cũng cross-compile được từ Linux bằng MinGW:
 `cmake -S . -B build-win -DCMAKE_TOOLCHAIN_FILE=cmake/mingw-w64-x86_64.cmake`.)
@@ -74,10 +79,23 @@ Kết quả: `build\platform\windows\Release\HodionKey.dll`.
 
 Gỡ: `regsvr32 /u HodionKey.dll`.
 
+## Chuyển Việt / Anh
+
+Bấm **`Ctrl + Space`** (mặc định) khi đang gõ để bật/tắt tiếng Việt — không
+cần đổi bàn phím. Phím chuyển đổi được trong app cấu hình (`Ctrl + Space`,
+`Ctrl + Shift + Space`, `Alt + Z`, `Ctrl + ` `` `, `Alt + ` `` `).
+
+Trạng thái bật/tắt dùng chung cho mọi ứng dụng đang gõ (lưu ở registry), và
+đồng bộ với chỉ báo IME của Windows — tắt từ thanh ngôn ngữ cũng có tác dụng.
+
 ## Cấu hình
 
-Tùy chọn đọc từ registry `HKCU\Software\HodionKey` (DWORD), nạp lại mỗi lần
-bàn phím được kích hoạt. Mặc định trùng với mặc định của UniKey:
+Chạy **`HodionKeyConfig.exe`** để chỉnh bằng hộp thoại. Bấm OK là các ứng
+dụng đang gõ nhận cấu hình mới ngay (text service theo dõi registry), không
+phải khởi động lại gì cả.
+
+Tùy chọn nằm ở registry `HKCU\Software\HodionKey` (DWORD) nếu muốn sửa tay
+hoặc triển khai theo chính sách. Mặc định trùng với mặc định của UniKey:
 
 | Giá trị         | Mặc định | Ý nghĩa                                          |
 |-----------------|----------|--------------------------------------------------|
@@ -88,11 +106,18 @@ bàn phím được kích hoạt. Mặc định trùng với mặc định của
 | `RestoreNonVn`  | `0`      | Tự trả lại phím thô với từ không phải tiếng Việt |
 | `WShorthand`    | `1`      | Telex: `w` không áp được móc thì thành `ư`       |
 | `TelexBrackets` | `1`      | Telex đầy đủ: `[ ] { }` → `ơ ư Ơ Ư`              |
+| `VietnameseOn`  | `1`      | Đang bật gõ tiếng Việt (phím chuyển ghi vào đây) |
+| `ToggleKey`     | `0x20`   | Virtual-key của phím chuyển (`0x20` = Space)     |
+| `ToggleMods`    | `2`      | Modifier: 1 = Alt, 2 = Ctrl, 4 = Shift (cộng dồn) |
+
+`ToggleMods` bắt buộc khác 0 — phím chuyển không có modifier sẽ nuốt mất
+phím đó khi gõ, nên giá trị hỏng sẽ tự quay về mặc định.
 
 ## Lộ trình
 
 - [x] Bộ luật Telex/VNI tương thích UniKey (spell-check, gõ dấu tự do,
       khôi phục từ không phải tiếng Việt, `[ ]`, họ vần uo…)
+- [x] Phím chuyển Việt/Anh + app cấu hình (áp dụng tức thì)
 - [ ] Port macOS (IMKit) và Linux (fcitx5) trên cùng engine
-- [ ] App cấu hình + phím tắt bật/tắt tiếng Việt
 - [ ] Gõ tắt (macro) người dùng định nghĩa, VIQR
+- [ ] Chỉ báo trạng thái trên thanh ngôn ngữ / khay hệ thống

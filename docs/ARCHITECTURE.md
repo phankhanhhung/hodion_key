@@ -92,6 +92,30 @@ implement:
   engine bỏ trạng thái để không lệch với màn hình.
 - `ITfDisplayAttributeProvider` — gạch chân đoạn đang ghép.
 - `ITfThreadMgrEventSink` — đổi focus là chốt từ đang gõ dở.
+- `ITfCompartmentEventSink` — theo dõi compartment
+  `GUID_COMPARTMENT_KEYBOARD_OPENCLOSE` để trạng thái bật/tắt luôn khớp với
+  chỉ báo IME của hệ thống (người dùng tắt từ thanh ngôn ngữ cũng ăn).
+
+### Bật/tắt tiếng Việt và cấu hình
+
+Phím chuyển đăng ký bằng `ITfKeystrokeMgr::PreserveKey` (mặc định
+`Ctrl + Space`) nên TSF giao thẳng qua `OnPreservedKey`, không lẫn vào luồng
+phím thường; phím chuyển bắt buộc có modifier để không nuốt mất một phím gõ.
+Khi tắt, `ClassifyKey` trả `NotOurs` cho mọi phím — ứng dụng nhận phím
+nguyên vẹn.
+
+Cấu hình nằm ở `HKCU\Software\HodionKey`, dùng chung giữa text service
+(`src/Settings.cpp`) và app cấu hình (`config/`). Text service không đọc
+registry mỗi phím: nó đăng ký `RegNotifyChangeKeyValue` một lần rồi chỉ
+kiểm tra event (`SettingsWatcher::poll`) lúc đổi focus hoặc giữa hai từ —
+nhờ vậy bấm OK trong app cấu hình là mọi ứng dụng đang gõ đổi theo ngay,
+kể cả trạng thái bật/tắt.
+
+App cấu hình là hộp thoại Win32 thuần (`DialogBoxParamW`): bố cục trong
+`.rc` chỉ dùng ASCII, toàn bộ nhãn tiếng Việt gán lúc chạy bằng
+`SetDlgItemTextW` để không lệ thuộc code page của `rc.exe`/`windres`.
+`platform/windows/tests/settings_test.cpp` kiểm thử vòng đọc/ghi registry
+và cơ chế watcher — chạy được cả trên Windows lẫn dưới Wine.
 
 Mọi thao tác văn bản đi qua **edit session đồng bộ** (`TF_ES_SYNC |
 TF_ES_READWRITE`) xin từ key event sink — đúng mô hình luồng TSF. Composition

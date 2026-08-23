@@ -54,6 +54,13 @@ CTextService::KeyDisposition CTextService::ClassifyKey(WPARAM wParam,
   *outChar = 0;
   const bool composing = engine_.composing();
 
+  // Tắt tiếng Việt: mọi phím đi thẳng tới ứng dụng (phím chuyển được TSF
+  // giao riêng qua OnPreservedKey nên không đi qua đây).
+  if (!vietnamese_) {
+    return composing ? KeyDisposition::FinalizeAndForward
+                     : KeyDisposition::NotOurs;
+  }
+
   // Tổ hợp Ctrl/Alt (hotkey của ứng dụng): không can thiệp,
   // nhưng từ đang gõ dở phải được chốt trước khi hotkey chạy.
   if (IsKeyPressed(VK_CONTROL) || IsKeyPressed(VK_MENU)) {
@@ -166,6 +173,9 @@ STDMETHODIMP CTextService::OnTestKeyDown(ITfContext* /*pic*/, WPARAM wParam,
 STDMETHODIMP CTextService::OnKeyDown(ITfContext* pic, WPARAM wParam,
                                      LPARAM /*lParam*/, BOOL* pfEaten) {
   if (!pfEaten) return E_INVALIDARG;
+  // Giữa các từ là thời điểm an toàn để nạp cấu hình vừa đổi.
+  if (!engine_.composing()) ReloadSettingsIfChanged();
+
   wchar_t ch = 0;
   const KeyDisposition d = ClassifyKey(wParam, &ch);
   switch (d) {
@@ -197,9 +207,14 @@ STDMETHODIMP CTextService::OnKeyUp(ITfContext*, WPARAM, LPARAM,
   return S_OK;
 }
 
-STDMETHODIMP CTextService::OnPreservedKey(ITfContext*, REFGUID,
+STDMETHODIMP CTextService::OnPreservedKey(ITfContext*, REFGUID rguid,
                                           BOOL* pfEaten) {
   if (!pfEaten) return E_INVALIDARG;
+  if (IsEqualGUID(rguid, GUID_HodionKeyToggle)) {
+    SetVietnamese(!vietnamese_, /*persist=*/true);
+    *pfEaten = TRUE;
+    return S_OK;
+  }
   *pfEaten = FALSE;
   return S_OK;
 }
