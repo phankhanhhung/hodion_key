@@ -4,10 +4,15 @@ Bộ gõ tiếng Việt cho Windows viết from scratch theo chuẩn **TSF (Text
 Services Framework)** — không hook bàn phím toàn cục, không giả lập phím —
 với **engine gõ tách rời hoàn toàn** để port sang macOS/Linux.
 
-- **Telex** và **VNI**, đủ luật dấu phụ/dấu thanh, luật hủy khi gõ lặp
-  (`aa→â→aa`, `as→á→as`, `dd→đ→dd`…), gõ dấu ở cuối từ.
-- Đặt dấu thanh đúng chính tả (`qu`/`gi`, `ươ`, `uyê`…), hỗ trợ cả kiểu cũ
-  (`hòa`) lẫn kiểu mới (`hoà`).
+- **Telex** (đầy đủ, kể cả `w→ư`, `[ ] { }`) và **VNI**, bộ luật **tương
+  thích hành vi UniKey** — nghiên cứu từ ukengine và cài đặt lại từ đầu,
+  đặc tả tại [docs/unikey-rules.md](docs/unikey-rules.md).
+- Kiểm tra chính tả cấu trúc âm tiết (từ sai ngừng biến đổi — `vietr` giữ
+  nguyên), gõ dấu tự do ở cuối từ (`viete→viêt`, `dund→đun`), luật hủy khi
+  gõ lặp (`aa→â→aa`, `as→á→as`, `uoww→uow`…), họ vần uo đầy đủ
+  (`thuow→thuơ` cho "thuở", `thuowng→thương`, `tuoiw→tươi`).
+- Đặt dấu thanh đúng chính tả (`qu`/`gi`, `ươ`, `uyê`…), kiểu cũ (`hòa`)
+  lẫn kiểu mới (`hoà`); tùy chọn tự khôi phục từ không phải tiếng Việt.
 - Ký tự Unicode dựng sẵn (NFC) — hiển thị đúng ở mọi ứng dụng.
 - Composition chuẩn TSF: đoạn đang gõ gạch chân, Backspace hoàn tác từng
   phím, Esc trả lại chuỗi phím thô, Enter/Tab/chuột chốt từ tự nhiên.
@@ -72,18 +77,22 @@ Gỡ: `regsvr32 /u HodionKey.dll`.
 ## Cấu hình
 
 Tùy chọn đọc từ registry `HKCU\Software\HodionKey` (DWORD), nạp lại mỗi lần
-bàn phím được kích hoạt:
+bàn phím được kích hoạt. Mặc định trùng với mặc định của UniKey:
 
-| Giá trị       | Mặc định | Ý nghĩa                                        |
-|---------------|----------|------------------------------------------------|
-| `InputMethod` | `0`      | `0` = Telex, `1` = VNI                         |
-| `ToneStyle`   | `0`      | `0` = kiểu cũ (hòa), `1` = kiểu mới (hoà)      |
-| `WShorthand`  | `1`      | Telex: phím `w` đơn → `ư`                      |
-| `DelayedD`    | `1`      | Telex: `d` cuối từ → `đ` (`dun` + `d` → `đun`) |
+| Giá trị         | Mặc định | Ý nghĩa                                          |
+|-----------------|----------|--------------------------------------------------|
+| `InputMethod`   | `0`      | `0` = Telex, `1` = VNI                           |
+| `ToneStyle`     | `0`      | `0` = kiểu cũ (hòa), `1` = kiểu mới (hoà)        |
+| `FreeMarking`   | `1`      | Gõ dấu tự do — dấu ở cuối từ (`viete→viêt`)      |
+| `SpellCheck`    | `1`      | Kiểm tra chính tả âm tiết (từ sai ngừng biến đổi) |
+| `RestoreNonVn`  | `0`      | Tự trả lại phím thô với từ không phải tiếng Việt |
+| `WShorthand`    | `1`      | Telex: `w` không áp được móc thì thành `ư`       |
+| `TelexBrackets` | `1`      | Telex đầy đủ: `[ ] { }` → `ơ ư Ơ Ư`              |
 
 ## Lộ trình
 
+- [x] Bộ luật Telex/VNI tương thích UniKey (spell-check, gõ dấu tự do,
+      khôi phục từ không phải tiếng Việt, `[ ]`, họ vần uo…)
 - [ ] Port macOS (IMKit) và Linux (fcitx5) trên cùng engine
-- [ ] Kiểm tra chính tả âm tiết + khôi phục từ không phải tiếng Việt
 - [ ] App cấu hình + phím tắt bật/tắt tiếng Việt
-- [ ] Telex mở rộng (`[` `]`), gõ tắt người dùng định nghĩa
+- [ ] Gõ tắt (macro) người dùng định nghĩa, VIQR

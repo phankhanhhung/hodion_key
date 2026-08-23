@@ -1,7 +1,8 @@
 # Lõi bộ gõ — portable, không phụ thuộc OS.
 add_library(hodion_engine STATIC
   src/chartable.cpp
-  src/composer.cpp
+  src/vnlexi.cpp
+  src/word.cpp
   src/engine.cpp
   src/engine_c.cpp
   src/utf.cpp

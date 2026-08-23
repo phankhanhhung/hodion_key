@@ -46,6 +46,20 @@ void hodion_engine_set_tone_style(hodion_engine* e, int style) {
   e->impl.set_config(cfg);
 }
 
+void hodion_engine_set_flag(hodion_engine* e, int flag, int value) {
+  hodion::Config cfg = e->impl.config();
+  const bool v = value != 0;
+  switch (flag) {
+    case HODION_FLAG_FREE_MARKING: cfg.free_marking = v; break;
+    case HODION_FLAG_SPELL_CHECK: cfg.spell_check = v; break;
+    case HODION_FLAG_RESTORE_NON_VN: cfg.restore_non_vn = v; break;
+    case HODION_FLAG_W_SHORTHAND: cfg.w_shorthand = v; break;
+    case HODION_FLAG_TELEX_BRACKETS: cfg.telex_brackets = v; break;
+    default: return;
+  }
+  e->impl.set_config(cfg);
+}
+
 int hodion_engine_key(hodion_engine* e, uint32_t codepoint, char* out,
                       size_t out_cap) {
   return result_out(e->impl.process_char(static_cast<char32_t>(codepoint)),

@@ -47,10 +47,6 @@ wchar_t VkToChar(WPARAM vk) {
   }
 }
 
-bool IsAsciiLetter(wchar_t ch) {
-  return (ch >= L'a' && ch <= L'z') || (ch >= L'A' && ch <= L'Z');
-}
-
 }  // namespace
 
 CTextService::KeyDisposition CTextService::ClassifyKey(WPARAM wParam,
@@ -80,7 +76,10 @@ CTextService::KeyDisposition CTextService::ClassifyKey(WPARAM wParam,
   if (ch != 0) {
     *outChar = ch;
     if (composing) return KeyDisposition::Eat;  // engine ghép tiếp hoặc chốt kèm ký tự
-    return IsAsciiLetter(ch) ? KeyDisposition::Eat : KeyDisposition::NotOurs;
+    // Chưa compose: chỉ nuốt phím mở từ (chữ cái; [ ] { } ở Telex đầy đủ).
+    return engine_.starts_word(static_cast<char32_t>(ch))
+               ? KeyDisposition::Eat
+               : KeyDisposition::NotOurs;
   }
 
   // Phím điều khiển khác (Enter, Tab, mũi tên, Delete, Home…):

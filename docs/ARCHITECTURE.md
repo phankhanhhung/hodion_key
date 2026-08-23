@@ -9,9 +9,10 @@
 2. **Tầng platform càng mỏng càng tốt.** `platform/windows/` chỉ làm ba việc:
    dịch phím → ký tự, chuyển kết quả engine → thao tác composition của TSF,
    và đăng ký COM/profile. Không một luật tiếng Việt nào nằm ở tầng này.
-3. **Không trạng thái ngầm.** Engine giữ đúng một thứ: chuỗi phím thô của từ
-   đang gõ. Chuỗi hiển thị luôn được tái dựng từ đầu sau mỗi phím — mọi luật
-   hủy/hoàn tác vì thế đúng theo cấu trúc, không cần vá từng ca đặc biệt.
+3. **Tương thích hành vi UniKey.** Bộ luật gõ (Telex/VNI, kiểm tra chính tả
+   âm tiết, gõ dấu tự do, luật hủy, họ vần uo…) được nghiên cứu từ mã nguồn
+   ukengine và cài đặt lại từ đầu — đặc tả đầy đủ ở
+   [unikey-rules.md](unikey-rules.md).
 
 ```
 ┌────────────────────────────────────────────────────────┐
@@ -49,29 +50,27 @@ hành động:
 
 ### Luồng dữ liệu
 
-Mỗi phím chữ được nối vào `raw_` (chuỗi phím thô). Sau đó:
+Engine gồm ba tầng, mirror mô hình của UniKey nhưng viết lại từ đầu:
 
-1. **Composer** (`src/composer.cpp`) chạy tuần tự qua `raw_`, dựng
-   `ComposeState = {chars[], tone}` trong đó mỗi `VChar` mang chữ gốc +
-   dấu phụ (ă/â/ê/ô/ơ/ư/đ) + hoa/thường. Các luật gõ lặp để hủy
-   (`aa→â→aa`, `as→á→as`, `dd→đ→dd`, `w→ư→w`…) phát sinh tự nhiên từ
-   cách xử lý tuần tự này.
-2. **Đặt dấu thanh** (`tone_position`): xác định phụ âm đầu (kể cả `qu`,
-   `gi`), cụm nguyên âm, rồi chọn vị trí theo thứ tự ưu tiên:
-   nguyên âm có dấu phụ (ê, ơ, â… — cặp `ươ` lấy `ơ`) → một nguyên âm →
-   hai nguyên âm có âm cuối lấy nguyên âm sau → `oa/oe/uy` theo tùy chọn
-   kiểu cũ/kiểu mới → mặc định nguyên âm đầu → ba nguyên âm lấy nguyên âm giữa.
-3. **Chartable** (`src/chartable.cpp`) tra (chữ gốc, dấu phụ, thanh) →
-   codepoint Unicode dựng sẵn (NFC) — dạng chuẩn mà mọi ứng dụng Windows
-   hiển thị đúng.
+1. **`vnlexi`** — dữ liệu từ vựng: 69 vần hợp lệ (kèm cờ trọn vẹn/nhận âm
+   cuối và đích khi thêm mũ/móc), 30 chuỗi phụ âm, bảng cặp vần–âm cuối,
+   luật phụ âm đầu (k/gi/qu) và ngoại lệ (quynh, giêng), hàm vị trí dấu
+   thanh. Bảng nguồn viết dạng chuỗi UTF-8 dễ đọc, phân giải lúc khởi tạo.
+2. **`word`** — máy trạng thái một từ: mỗi ô (ký tự hiển thị) mang snapshot
+   cấu trúc âm tiết của từ tính đến ô đó (dạng từ, id vần/phụ âm, liên
+   kết), dấu thanh nằm trên ô và di chuyển khi cấu trúc đổi. Các sự kiện
+   `roof/hook/tone/stroke_d/telex_w/map_char/append` cài đủ luật UniKey:
+   kiểm tra chính tả đóng băng từ sai, gõ dấu tự do xuyên âm cuối, họ vần
+   uo (ươ, ngoại lệ thuơ, tự hoàn thành ưo→ươ), gi/gin mang thanh, hủy khi
+   gõ lặp… Backspace chỉ việc bỏ ô cuối (kèm lùi dấu thanh).
+3. **`chartable`** tra (chữ gốc, dấu phụ, thanh) → codepoint Unicode dựng
+   sẵn (NFC) — dạng chuẩn mọi ứng dụng hiển thị đúng.
 
-Backspace = pop một phím thô rồi tái dựng — hoàn tác đúng theo phím gõ.
+`engine.cpp` điều phối: phân loại phím theo kiểu gõ (Telex/VNI), ngắt từ
+theo danh sách của UniKey, ghi log phím thô của từ (phục vụ Esc và tùy chọn
+khôi phục từ không phải tiếng Việt), chốt từ khi gặp ký tự ngắt.
 
-### Vì sao tái dựng từ đầu thay vì biến đổi tăng dần?
-
-Buffer một "từ" tối đa ~40 phím nên chi phí O(n²/phím) không đáng kể, đổi
-lại: không bao giờ lệch trạng thái, backspace/hủy dấu đúng tuyệt đối, và
-test chỉ cần khẳng định `keys → text` thuần túy.
+Đặc tả hành vi đầy đủ (kèm ví dụ vàng): [unikey-rules.md](unikey-rules.md).
 
 ## Windows TSF (`platform/windows/`)
 
@@ -119,9 +118,7 @@ cross-compile/CI từ Linux; trên MSVC các guard tự vô hiệu.
 
 ## Lộ trình tính năng
 
-- Kiểm tra chính tả âm tiết (bảng phụ âm đầu/vần/âm cuối hợp lệ) với tùy
-  chọn khôi phục phím thô cho từ không phải tiếng Việt.
-- Telex mở rộng (`[`/`]` → ơ/ư), gõ tắt do người dùng định nghĩa.
+- Gõ tắt (macro) do người dùng định nghĩa; kiểu gõ VIQR, Simple Telex.
 - App cấu hình (thay cho sửa registry tay) + phím tắt bật/tắt tiếng Việt
   (compartment input mode).
 - Trang trạng thái trên language bar / systray.
