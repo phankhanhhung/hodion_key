@@ -27,11 +27,20 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ENGINE_SRC = os.path.join(ROOT, "engine", "src")
 ENGINE_TESTS = os.path.join(ROOT, "engine", "tests")
 INCLUDES = ["-I", os.path.join(ROOT, "engine", "include"), "-I", ENGINE_SRC]
-CXXFLAGS = ["-std=c++17", "-O0", "-w"]
+BASE_CXXFLAGS = ["-std=c++17", "-O0", "-w"]
+
+# Bật sanitizer để bắt cả những mutant chỉ gây lỗi bộ nhớ (đọc lố mảng,
+# tràn số…) — loại mà so sánh chuỗi ra không thấy được.
+SANITIZE_FLAGS = ["-fsanitize=address,undefined", "-fno-sanitize-recover=all",
+                  "-fno-omit-frame-pointer", "-g", "-O1"]
 
 # Số vòng fuzz khi chạy mutation: đủ để fuzz phát huy tác dụng mà vẫn nhanh
 # (mỗi mutant phải chạy lại toàn bộ bộ test).
 FUZZ_ROUNDS = "2000"
+
+
+CXXFLAGS = list(BASE_CXXFLAGS)
+LDFLAGS = []
 
 
 class Mutation:
@@ -138,7 +147,9 @@ def build_baseline(workdir):
 
 
 def run_tests(binary, timeout):
-    env = dict(os.environ, HODION_FUZZ_ROUNDS=FUZZ_ROUNDS)
+    env = dict(os.environ, HODION_FUZZ_ROUNDS=FUZZ_ROUNDS,
+               ASAN_OPTIONS="detect_leaks=1:abort_on_error=0",
+               UBSAN_OPTIONS="print_stacktrace=0")
     try:
         proc = subprocess.run([binary], capture_output=True, timeout=timeout,
                               env=env)
@@ -169,7 +180,7 @@ def evaluate(mutation, objects, workdir, index, timeout):
         link_objs = [mutated_obj] + [obj for src, obj in objects.items()
                                      if src != mutation.path]
         binary = os.path.join(scratch, "mutant_tests")
-        proc = subprocess.run(["g++"] + link_objs + ["-o", binary],
+        proc = subprocess.run(["g++"] + link_objs + LDFLAGS + ["-o", binary],
                               capture_output=True, timeout=timeout)
         if proc.returncode != 0:
             return "build_error"
@@ -191,7 +202,16 @@ def main():
     parser.add_argument("--jobs", type=int, default=os.cpu_count() or 2)
     parser.add_argument("--timeout", type=int, default=120)
     parser.add_argument("--seed", type=int, default=20260823)
+    parser.add_argument("--asan", action="store_true",
+                        help="dịch kèm AddressSanitizer + UBSan để bắt cả "
+                             "mutant chỉ gây lỗi bộ nhớ (chậm hơn ~3 lần)")
     args = parser.parse_args()
+
+    global CXXFLAGS, LDFLAGS
+    if args.asan:
+        CXXFLAGS = list(BASE_CXXFLAGS) + SANITIZE_FLAGS
+        LDFLAGS = ["-fsanitize=address,undefined"]
+        print("Bật AddressSanitizer + UBSan (chậm hơn nhiều).")
 
     paths = [os.path.join(ENGINE_SRC, f) for f in sorted(os.listdir(ENGINE_SRC))
              if f.endswith(".cpp")]
@@ -213,8 +233,8 @@ def main():
         objects = build_baseline(workdir)
 
         baseline_bin = os.path.join(workdir, "baseline_tests")
-        subprocess.run(["g++"] + list(objects.values()) + ["-o", baseline_bin],
-                       check=True)
+        subprocess.run(["g++"] + list(objects.values()) + LDFLAGS +
+                       ["-o", baseline_bin], check=True)
         if run_tests(baseline_bin, args.timeout) != 0:
             print("LỖI: bộ test đã đỏ khi chưa gieo lỗi — sửa test trước đã.")
             return 2

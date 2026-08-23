@@ -23,6 +23,25 @@ jobs:
           HODION_FUZZ_STATS: 1
         run: ./build/engine/hodion_engine_tests
 
+  sanitizers:
+    name: Sanitizer (ASan + UBSan)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure
+        run: |
+          cmake -S . -B build-asan -DCMAKE_BUILD_TYPE=Debug \
+            -DCMAKE_CXX_FLAGS="-fsanitize=address,undefined -fno-sanitize-recover=all -fno-omit-frame-pointer -g -O1" \
+            -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=address,undefined"
+      - name: Build
+        run: cmake --build build-asan -j
+      - name: Test + fuzz soak dưới sanitizer
+        env:
+          HODION_FUZZ_ROUNDS: 200000
+          HODION_FUZZ_STATS: 1
+          ASAN_OPTIONS: detect_leaks=1
+        run: ./build-asan/engine/hodion_engine_tests
+
   coverage:
     name: Độ phủ (engine)
     runs-on: ubuntu-latest

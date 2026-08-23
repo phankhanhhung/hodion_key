@@ -5,7 +5,8 @@ bộ test có *bắt lỗi* hay không. Mutation testing trả lời câu hỏi 
 **cố tình gieo lỗi vào code, bộ test có kêu không?**
 
 ```sh
-python3 tools/mutation_test.py                 # chạy toàn bộ (~10 phút, 4 luồng)
+python3 tools/mutation_test.py --asan          # con số chuẩn (~25 phút, 4 luồng)
+python3 tools/mutation_test.py                 # nhanh hơn ~3 lần, để lặp nhanh
 python3 tools/mutation_test.py --limit 60      # lấy mẫu cho nhanh
 python3 tools/mutation_test.py --files word.cpp
 ```
@@ -23,10 +24,16 @@ Công cụ chỉ làm việc trong thư mục tạm, không đụng vào cây ng
 563 mutant sinh ra, 88 cái không dịch được (không tính điểm), còn 475 cái
 hợp lệ:
 
-| Lần chạy                | Điểm mutation | Sống sót |
-|-------------------------|---------------|----------|
-| Trước khi bịt lỗ hổng   | 73,0%         | 130      |
-| Sau khi thêm test       | 83,4%         | 79       |
+| Lần chạy                              | Điểm mutation | Sống sót |
+|---------------------------------------|---------------|----------|
+| Bộ test ban đầu                       | 73,0%         | 130      |
+| + test bịt lỗ hổng mutation chỉ ra    | 83,4%         | 79       |
+| + test bịt nhánh coverage chỉ ra      | 84,8%         | 72       |
+| + AddressSanitizer & UBSan (`--asan`) | **86,9%**     | **62**   |
+
+Ba dòng đầu chạy không sanitizer; dòng cuối là **cùng bộ test đó** chạy lại
+kèm sanitizer, nên chênh lệch 84,8% → 86,9% là phần đóng góp của riêng
+sanitizer: đúng 10 mutant, và không mutant nào đang chết lại sống dậy.
 
 ## Những lỗ hổng thật đã bịt
 
@@ -67,10 +74,30 @@ Số mutant còn sống chủ yếu thuộc ba nhóm **không thể giết bằn
 2. **Mã phòng thủ không tới được** — các chốt chặn cho trường hợp bảng dữ
    liệu bị sai, mà bảng thì luôn đúng (vd `if (n < 3)` khi mọi chuỗi trong
    bảng đều ≤ 3 ký tự). Giữ lại vì rẻ và an toàn.
-3. **Mutant chỉ gây UB** — đổi biên vòng lặp thành đọc lố mảng một phần tử
-   (15 trong số 79 cái còn sống là dạng này). Chương trình thường vẫn chạy
-   đúng nên test không thấy; muốn bắt thì phải chạy mutation kèm
-   AddressSanitizer — việc còn để lại cho sau.
+3. **Mutant chỉ gây lỗi bộ nhớ** — đổi biên vòng lặp hay chỉ số thành đọc/ghi
+   lố mảng. Chương trình vẫn cho ra chuỗi đúng nên so sánh kết quả không
+   thấy gì. Nhóm này đã xử lý được bằng `--asan` (xem dưới).
+
+## Chạy kèm AddressSanitizer
+
+`--asan` dịch cả engine lẫn test với `-fsanitize=address,undefined
+-fno-sanitize-recover=all`, nên mutant nào gây đọc/ghi lố mảng hoặc hành vi
+không xác định sẽ làm chương trình dừng với mã lỗi — tức là **bị bắt**, dù
+chuỗi ra vẫn đúng.
+
+Đúng 10 mutant chỉ sanitizer mới giết được, tất cả đều là lỗi bộ nhớ:
+
+- `vnlexi.cpp:188/203/239/247`, `word.cpp:421/526` — biên vòng lặp
+  `i < n` thành `i <= n`: đọc quá phần tử cuối của bảng vần / bảng phụ âm.
+- `word.cpp:775` — lệch chỉ số `-1` thành `+1` khi tính đầu vần.
+- `word.cpp:281/340/776` — đảo `&&`/`||` làm hỏng chốt chặn chỉ số, dẫn tới
+  truy cập ngoài mảng.
+
+Đây chính là loại lỗi nguy hiểm nhất trong C++ mà so sánh chuỗi không bao
+giờ thấy: chương trình đọc rác nhưng vẫn tình cờ in ra đúng. Vì vậy CI chạy
+toàn bộ test **và** một lượt fuzz 200.000 vòng dưới ASan + UBSan (kể cả dò
+rò bộ nhớ) trong job `sanitizers`; engine hiện sạch với hơn 11 triệu lượt
+kiểm tra dưới sanitizer.
 
 Mã chỉ phục vụ test (`Word::check_invariants`, `Engine::self_check`) được
 đánh dấu `MUTATION-SKIP-BEGIN/END` và loại khỏi phạm vi: gieo lỗi vào đó chỉ

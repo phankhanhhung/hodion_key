@@ -54,13 +54,14 @@ tái hiện. Chạy soak lâu hơn và xem thống kê:
 HODION_FUZZ_ROUNDS=200000 HODION_FUZZ_STATS=1 ./build/engine/hodion_engine_tests
 ```
 
-Chất lượng bộ test: độ phủ **99% dòng / 81% nhánh**, và điểm **mutation
-testing 83,4%** (gieo lỗi vào engine rồi xem test có bắt không — thước đo
-thật, vì phủ 97% dòng mà mutation vẫn từng tìm ra 130 lỗ hổng). Chi tiết ở
+Chất lượng bộ test: độ phủ **99% dòng / 81% nhánh**, điểm **mutation testing
+86,9%** (gieo lỗi vào engine rồi xem test có bắt không — thước đo thật, vì
+phủ 97% dòng mà mutation vẫn từng tìm ra 130 lỗ hổng), và engine sạch dưới
+**AddressSanitizer + UBSan** qua hơn 11 triệu lượt kiểm tra. Chi tiết ở
 [docs/mutation-testing.md](docs/mutation-testing.md):
 
 ```sh
-python3 tools/mutation_test.py                      # mutation testing
+python3 tools/mutation_test.py --asan                    # mutation testing
 gcovr --root . --filter 'engine/src/' --txt --branches   # độ phủ
 ```
 

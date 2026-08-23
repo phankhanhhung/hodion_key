@@ -5,3 +5,4 @@ out/
 .cache/
 CMakeUserPresets.json
 build-cov/
+build-asan/
