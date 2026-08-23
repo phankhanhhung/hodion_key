@@ -21,6 +21,7 @@ add_executable(hodion_engine_tests
   tests/test_vni.cpp
   tests/test_edge.cpp
   tests/test_fuzz.cpp
+  tests/test_gaps.cpp
   tests/test_engine.cpp
 )
 target_link_libraries(hodion_engine_tests PRIVATE hodion_engine)

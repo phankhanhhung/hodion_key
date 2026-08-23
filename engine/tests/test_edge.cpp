@@ -186,6 +186,19 @@ void run_edge_tests() {
     EXPECT_EQ(u8(r.text), "bõin ");  // giữ chữ đang hiển thị, không cắt cụt
   }
 
+  // ---- Hủy dấu khi dấu KHÔNG nằm ở cuối từ (cần gõ dấu tự do) -------------
+  // Mũ/móc/thanh đã đặt ở giữa từ vẫn hủy được bằng cách gõ lặp phím dấu,
+  // dù con trỏ đã đi qua âm cuối.
+  EXPECT_EQ(telex("vieete"), "viete");
+  EXPECT_EQ(telex("dduongwwf"), "đuongwf");
+  EXPECT_EQ(telex("muonwwc"), "muonwc");
+  EXPECT_EQ(telex("tuoiww"), "tuoiw");
+  EXPECT_EQ(telex("banass"), "bâns");  // thanh trên â (giữa từ) hủy được
+  EXPECT_EQ(vni("viet661"), "viet61");
+  EXPECT_EQ(vni("hoan88"), "hoan8");
+  // Tắt gõ dấu tự do thì dấu ở giữa từ không hủy được nữa.
+  EXPECT_EQ(no_free("vieete"), "viête");
+
   // ---- Tùy chọn: tắt gõ dấu tự do -----------------------------------------
   EXPECT_EQ(no_free("viete"), "viete");   // mũ chỉ ăn khi đứng ngay sau nguyên âm
   EXPECT_EQ(no_free("vieet"), "viêt");
@@ -367,6 +380,38 @@ void run_edge_tests() {
     hodion_engine_composition(e, tiny, sizeof(tiny));
     EXPECT_TRUE(tiny[3] == '\0');
     hodion_engine_destroy(e);
+  }
+
+  // ---- Chuyển đổi UTF (host Windows dùng UTF-16, macOS/Linux dùng UTF-8) --
+  {
+    using hodion::utf::from_utf8;
+    using hodion::utf::to_utf16;
+    using hodion::utf::to_utf8;
+
+    // 1, 2, 3 và 4 byte.
+    EXPECT_EQ(to_utf8(U"A"), std::string("A"));
+    EXPECT_TRUE(to_utf8(U"é").size() == 2);
+    EXPECT_TRUE(to_utf8(U"ệ").size() == 3);
+    EXPECT_TRUE(to_utf8(U"\U0001D11E").size() == 4);  // ngoài BMP
+
+    // Khứ hồi.
+    const std::u32string vn = U"Tiếng Việt: đường phượng bay";
+    EXPECT_TRUE(from_utf8(to_utf8(vn)) == vn);
+    const std::u32string wide = U"aéệ\U0001D11E";
+    EXPECT_TRUE(from_utf8(to_utf8(wide)) == wide);
+
+    // UTF-16: ngoài BMP phải thành cặp thay thế đúng chuẩn.
+    const std::u16string u16 = to_utf16(U"\U0001D11E");
+    EXPECT_TRUE(u16.size() == 2);
+    EXPECT_TRUE(u16[0] == 0xD834 && u16[1] == 0xDD1E);
+    EXPECT_TRUE(to_utf16(U"ệ").size() == 1);
+
+    // Đầu vào hỏng thì bỏ qua, không treo và không đọc lố.
+    EXPECT_TRUE(from_utf8(std::string("\xC3")).empty());          // cụt
+    EXPECT_TRUE(from_utf8(std::string("\xFF\xFE")).empty());      // byte lạ
+    // Byte nối sai: bỏ đúng phần hỏng rồi đọc lại — 0x28 là dấu '(' hợp lệ.
+    EXPECT_TRUE(from_utf8(std::string("\xE1\x28" "A")) == U"(A");
+    EXPECT_TRUE(from_utf8(std::string("A\x80" "B")) == U"AB");    // byte nối lạc
   }
 
   // Fuzz sâu hơn nằm ở test_fuzz.cpp.

@@ -807,6 +807,9 @@ void Word::backspace(const Config& cfg) {
 
 // ---- Đánh giá từ (khôi phục phím) -----------------------------------------
 
+// MUTATION-SKIP-BEGIN
+// Hàm này chỉ phục vụ test: gieo lỗi vào nó chỉ làm phép kiểm tra yếu đi,
+// mà bộ test thì không thể tự phát hiện điều đó.
 bool Word::check_invariants() const {
   const int n = static_cast<int>(cells_.size());
 
@@ -873,6 +876,7 @@ bool Word::check_invariants() const {
   }
   return true;
 }
+// MUTATION-SKIP-END
 
 bool Word::is_non_vn(const Config& cfg) const {
   (void)cfg;

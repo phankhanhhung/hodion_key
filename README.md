@@ -16,8 +16,9 @@ với **engine gõ tách rời hoàn toàn** để port sang macOS/Linux.
 - Ký tự Unicode dựng sẵn (NFC) — hiển thị đúng ở mọi ứng dụng.
 - **Phím chuyển Việt/Anh** (mặc định `Ctrl + Space`) và **app cấu hình** —
   đổi tùy chọn là có hiệu lực ngay, không phải khởi động lại ứng dụng đang gõ.
-- Composition chuẩn TSF: đoạn đang gõ gạch chân, Backspace hoàn tác từng
-  phím, Esc trả lại chuỗi phím thô, Enter/Tab/chuột chốt từ tự nhiên.
+- Composition chuẩn TSF: đoạn đang gõ gạch chân, Backspace xóa một ký tự
+  (dấu thanh tự lùi đúng chỗ), Esc trả lại chuỗi phím thô, Enter/Tab/chuột
+  chốt từ tự nhiên.
 
 ## Cấu trúc
 
@@ -26,7 +27,8 @@ engine/                   Lõi bộ gõ — C++17 thuần, không phụ thuộc 
 platform/windows/src      TSF text service (COM DLL, không ATL/WRL)
 platform/windows/config   App cấu hình (hộp thoại Win32 thuần)
 platform/windows/tests    Kiểm thử tầng Windows (registry, watcher)
-docs/                     Kiến trúc, đặc tả bộ luật UniKey
+docs/                     Kiến trúc, đặc tả bộ luật UniKey, mutation testing
+tools/                    Công cụ dev (mutation testing)
 cmake/                    Toolchain cross-compile MinGW (CI trên Linux)
 ```
 
@@ -50,6 +52,14 @@ tái hiện. Chạy soak lâu hơn và xem thống kê:
 
 ```sh
 HODION_FUZZ_ROUNDS=200000 HODION_FUZZ_STATS=1 ./build/engine/hodion_engine_tests
+```
+
+Chất lượng bộ test được đo bằng **mutation testing** (gieo lỗi vào engine
+rồi xem test có bắt không) — điểm hiện tại 83,4%, xem
+[docs/mutation-testing.md](docs/mutation-testing.md):
+
+```sh
+python3 tools/mutation_test.py
 ```
 
 Thử engine ngay trên terminal:

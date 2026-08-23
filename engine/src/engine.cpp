@@ -172,6 +172,8 @@ std::u32string Engine::commit() {
 
 void Engine::reset() { impl_->reset(); }
 
+// MUTATION-SKIP-BEGIN
+// Chỉ phục vụ test (xem chú thích ở Word::check_invariants).
 bool Engine::self_check() const {
   const Impl& im = *impl_;
   if (!im.word.check_invariants()) return false;
@@ -181,6 +183,7 @@ bool Engine::self_check() const {
   if (im.word.empty() && !im.keys.empty()) return false;
   return true;
 }
+// MUTATION-SKIP-END
 
 Engine::Result Engine::process_char(char32_t ch) {
   Impl& im = *impl_;

@@ -63,6 +63,7 @@ std::u32string from_utf8(const std::string& s) {
       continue;
     }
     if (i + len > s.size()) break;
+    size_t consumed = 1;
     bool ok = true;
     for (size_t k = 1; k < len; ++k) {
       const unsigned char cb = static_cast<unsigned char>(s[i + k]);
@@ -71,9 +72,16 @@ std::u32string from_utf8(const std::string& s) {
         break;
       }
       c = (c << 6) | (cb & 0x3F);
+      ++consumed;
     }
-    if (ok) out.push_back(c);
-    i += len;
+    if (ok) {
+      out.push_back(c);
+      i += len;
+    } else {
+      // Chuỗi hỏng: chỉ bỏ đúng phần đã đọc rồi đọc lại từ byte kế tiếp,
+      // để một ký tự hợp lệ đứng ngay sau không bị nuốt oan.
+      i += consumed;
+    }
   }
   return out;
 }
