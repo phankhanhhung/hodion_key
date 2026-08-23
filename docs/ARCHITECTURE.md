@@ -72,6 +72,26 @@ khôi phục từ không phải tiếng Việt), chốt từ khi gặp ký tự 
 
 Đặc tả hành vi đầy đủ (kèm ví dụ vàng): [unikey-rules.md](unikey-rules.md).
 
+### Cách engine được kiểm chứng
+
+Ngoài các ca cụ thể, `tests/test_fuzz.cpp` gõ ngẫu nhiên với Backspace xen
+giữa và cấu hình ngẫu nhiên, kiểm tra sau **từng thao tác**:
+
+- `Engine::self_check()` — bất biến nội bộ: chỉ số liên kết hợp lệ, dấu đặt
+  đúng chỗ, glyph của vần khớp bảng, mỗi âm tiết nhiều nhất một dấu thanh và
+  thanh không nằm ngoài vần, nhật ký phím chỉ tồn tại khi còn tin cậy;
+- bất biến quan sát từ ngoài: Backspace xóa đúng một ký tự hiển thị, một
+  phím thêm nhiều nhất một ký tự, `Commit` luôn để lại trạng thái sạch, chuỗi
+  ra chỉ chứa ASCII hoặc chữ tiếng Việt dựng sẵn;
+- tính chất biến hình: gõ cùng chuỗi phím nhưng viết hoa phải cho đúng bản
+  viết hoa của kết quả viết thường.
+
+Bộ sinh trộn chuỗi ngẫu nhiên thuần với chuỗi **có hình dạng âm tiết thật**
+(phụ âm đầu + vần + âm cuối + dấu, dấu đặt giữa hoặc cuối từ) — nếu chỉ
+ngẫu nhiên thuần thì phần lớn lượt chạy hỏng từ ngay ký tự thứ hai và không
+chạm được vào các luật thú vị. `HODION_FUZZ_STATS=1` in ra tỉ lệ lượt sinh
+được chữ có dấu (~68%) để biết fuzzer không bị thoái hoá.
+
 ## Windows TSF (`platform/windows/`)
 
 Text service COM viết tay (không ATL/WRL), một class `CTextService`

@@ -72,6 +72,11 @@ class Word {
 
   void backspace(const Config& cfg);
 
+  // Kiểm tra các bất biến nội bộ của bộ ô (chỉ dùng cho test/fuzz): chỉ số
+  // liên kết hợp lệ, dấu đặt đúng chỗ, glyph khớp bảng vần, mỗi âm tiết
+  // nhiều nhất một dấu thanh và thanh không nằm ngoài vần.
+  bool check_invariants() const;
+
   // Từ hiện tại không phải tiếng Việt hợp lệ? (dùng cho khôi phục phím)
   bool is_non_vn(const Config& cfg) const;
   // Từ có mang dấu tiếng Việt (thanh/mũ/móc/đ)?

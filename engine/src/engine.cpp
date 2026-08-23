@@ -172,6 +172,16 @@ std::u32string Engine::commit() {
 
 void Engine::reset() { impl_->reset(); }
 
+bool Engine::self_check() const {
+  const Impl& im = *impl_;
+  if (!im.word.check_invariants()) return false;
+  // Nhật ký phím chỉ tồn tại khi còn tin cậy được.
+  if (!im.keys_valid && !im.keys.empty()) return false;
+  // Không ghép gì thì không còn gì sót lại.
+  if (im.word.empty() && !im.keys.empty()) return false;
+  return true;
+}
+
 Engine::Result Engine::process_char(char32_t ch) {
   Impl& im = *impl_;
   const Config& cfg = im.cfg;

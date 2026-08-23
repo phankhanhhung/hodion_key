@@ -42,6 +42,16 @@ cmake --build build -j
 ctest --test-dir build --output-on-failure
 ```
 
+Bộ test gồm các ca cụ thể (Telex, VNI, edge case) và một **fuzzer có hạt
+giống cố định**: gõ ngẫu nhiên với Backspace xen giữa, cấu hình ngẫu nhiên,
+kiểm tra bất biến sau *từng* thao tác — kể cả bất biến nội bộ của engine
+(`Engine::self_check`). Khi vỡ bất biến, test in ra đúng chuỗi thao tác để
+tái hiện. Chạy soak lâu hơn và xem thống kê:
+
+```sh
+HODION_FUZZ_ROUNDS=200000 HODION_FUZZ_STATS=1 ./build/engine/hodion_engine_tests
+```
+
 Thử engine ngay trên terminal:
 
 ```sh

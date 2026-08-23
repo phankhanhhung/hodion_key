@@ -369,50 +369,5 @@ void run_edge_tests() {
     hodion_engine_destroy(e);
   }
 
-  // ---- Fuzz: bất biến khi gõ ngẫu nhiên -----------------------------------
-  {
-    // LCG cố định hạt giống — chạy lại luôn cho cùng kết quả.
-    uint32_t seed = 0x5eed1234u;
-    auto next = [&seed]() {
-      seed = seed * 1664525u + 1013904223u;
-      return seed >> 16;
-    };
-    static const char kAlphabet[] = "abcdefghijklmnopqrstuvwxyzAEIOUWDSFRXJZ[]";
-    const int kAlphabetLen = static_cast<int>(sizeof(kAlphabet) - 1);
-
-    for (int method = 0; method < 2; ++method) {
-      hodion::Config cfg;
-      cfg.method = method == 0 ? hodion::InputMethod::Telex
-                               : hodion::InputMethod::Vni;
-      for (int round = 0; round < 400; ++round) {
-        Engine e(cfg);
-        const int len = 1 + static_cast<int>(next() % 24);
-        int typed = 0;
-        for (int i = 0; i < len; ++i) {
-          const char32_t ch =
-              static_cast<char32_t>(kAlphabet[next() % kAlphabetLen]);
-          const auto r = e.process_char(ch);
-          if (r.action == Engine::Result::Action::Commit) {
-            typed = 0;  // engine đã reset
-          } else if (r.action == Engine::Result::Action::Composing) {
-            ++typed;
-          }
-          // Bất biến: chưa Backspace lần nào thì nhật ký phím khớp số phím
-          // engine đã nhận cho từ hiện tại.
-          if (e.composing()) {
-            EXPECT_TRUE(e.raw().size() == static_cast<size_t>(typed));
-          }
-        }
-        // Backspace tới cùng luôn về trạng thái rỗng, không kẹt, không lặp.
-        int guard = 0;
-        while (e.composing() && guard++ < 100) e.process_backspace();
-        EXPECT_TRUE(!e.composing());
-        EXPECT_TRUE(e.composition().empty());
-        EXPECT_TRUE(e.raw().empty());
-        // Sau khi cạn, backspace tiếp phải là None chứ không phải Composing.
-        EXPECT_TRUE(e.process_backspace().action ==
-                    Engine::Result::Action::None);
-      }
-    }
-  }
+  // Fuzz sâu hơn nằm ở test_fuzz.cpp.
 }

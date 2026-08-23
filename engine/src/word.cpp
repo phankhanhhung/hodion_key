@@ -807,6 +807,73 @@ void Word::backspace(const Config& cfg) {
 
 // ---- Đánh giá từ (khôi phục phím) -----------------------------------------
 
+bool Word::check_invariants() const {
+  const int n = static_cast<int>(cells_.size());
+
+  for (int i = 0; i < n; ++i) {
+    const Cell& c = cells_[i];
+
+    if (c.v_end < -1 || c.v_end >= n) return false;
+    if (c.onset_end < -1 || c.onset_end >= n) return false;
+
+    if (c.tone != 0) {
+      if (c.tone > 5) return false;
+      if (!is_vowel_letter(c.base)) return false;  // thanh chỉ nằm trên nguyên âm
+    }
+    if (c.mark == Mark::Stroke && c.base != U'd') return false;
+    if (c.base == 0 && (c.mark != Mark::None || c.tone != 0)) return false;
+
+    // cs có thể là kNoSeq: chữ cái không tạo thành chuỗi phụ âm nào (chỉ có
+    // 'z') vẫn được nhận vào vị trí phụ âm, đúng như UniKey.
+    switch (c.form) {
+      case Form::V:
+      case Form::CV:
+        if (c.vs == kNoSeq || c.v_end != i) return false;
+        break;
+      case Form::VC:
+      case Form::CVC:
+        if (c.v_end < 0 || c.v_end >= i) return false;
+        break;
+      case Form::C:
+        if (c.onset_end != i) return false;
+        break;
+      case Form::NonVn:
+        break;
+    }
+    // Có phụ âm đầu hay không phải khớp với dạng từ.
+    const bool has_onset = c.form == Form::CV || c.form == Form::CVC ||
+                           c.form == Form::C;
+    if (has_onset && c.onset_end < 0) return false;
+    if ((c.form == Form::V || c.form == Form::VC) && c.onset_end != -1) {
+      return false;
+    }
+  }
+
+  if (n == 0) return true;
+
+  const Cell& last = cells_.back();
+  if (last.v_end < 0) return true;
+
+  // Vần của âm tiết đang gõ phải khớp đúng bảng vần.
+  const int ve = last.v_end;
+  const int vs = cells_[ve].vs;
+  if (vs == kNoSeq) return false;
+  const VSeqInfo& info = vseq(vs);
+  const int vstart = ve - info.len + 1;
+  if (vstart < 0) return false;
+
+  int tones = 0;
+  for (int i = vstart; i <= ve; ++i) {
+    if (cells_[i].glyph() != info.g[i - vstart]) return false;
+    if (cells_[i].tone != 0) ++tones;
+  }
+  if (tones > 1) return false;                       // một âm tiết một dấu
+  for (int i = ve + 1; i < n; ++i) {
+    if (cells_[i].tone != 0) return false;           // thanh không ra khỏi vần
+  }
+  return true;
+}
+
 bool Word::is_non_vn(const Config& cfg) const {
   (void)cfg;
   if (cells_.empty()) return false;
@@ -821,6 +888,9 @@ bool Word::is_non_vn(const Config& cfg) const {
       return !vseq(last.vs).complete;
     case Form::VC:
     case Form::CVC: {
+      // Âm cuối không phải chuỗi phụ âm nào (vd 'z') thì chắc chắn không
+      // phải tiếng Việt. UniKey bỏ lọt ca này; ta bắt để khôi phục đúng.
+      if (last.cs == kNoSeq) return true;
       const int vs = cells_[last.v_end].vs;
       if (!vseq(vs).complete) return true;
       const int c1 = last.onset_end >= 0 ? cells_[last.onset_end].cs : kNoSeq;

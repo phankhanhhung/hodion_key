@@ -17,6 +17,11 @@ jobs:
         run: cmake --build build -j
       - name: Test
         run: ctest --test-dir build --output-on-failure
+      - name: Fuzz soak
+        env:
+          HODION_FUZZ_ROUNDS: 150000
+          HODION_FUZZ_STATS: 1
+        run: ./build/engine/hodion_engine_tests
 
   tsf-windows:
     name: TSF DLL (Windows / MSVC)

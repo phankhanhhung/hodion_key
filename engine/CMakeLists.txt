@@ -20,9 +20,12 @@ add_executable(hodion_engine_tests
   tests/test_telex.cpp
   tests/test_vni.cpp
   tests/test_edge.cpp
+  tests/test_fuzz.cpp
   tests/test_engine.cpp
 )
 target_link_libraries(hodion_engine_tests PRIVATE hodion_engine)
+# Test white-box: xem được cả bảng nội bộ của engine.
+target_include_directories(hodion_engine_tests PRIVATE src)
 if(MSVC)
   target_compile_options(hodion_engine_tests PRIVATE /utf-8)
 endif()

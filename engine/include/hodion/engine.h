@@ -80,6 +80,9 @@ class Engine {
   std::u32string commit();             // trả về chuỗi hiển thị rồi reset
   void reset();
 
+  // Kiểm tra bất biến nội bộ — dành cho test/fuzz, không dùng trong bộ gõ.
+  bool self_check() const;
+
  private:
   struct Impl;
   std::unique_ptr<Impl> impl_;
