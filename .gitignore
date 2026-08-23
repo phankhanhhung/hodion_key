@@ -6,3 +6,5 @@ out/
 CMakeUserPresets.json
 build-cov/
 build-asan/
+__pycache__/
+*.pyc
