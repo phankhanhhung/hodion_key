@@ -7,7 +7,13 @@
 #define RT_MANIFEST 24
 #endif
 
+// Chỉ nhúng manifest ở đây khi trình liên kết không tự sinh manifest (MinGW).
+// MSVC luôn tự sinh một cái, nhúng thêm từ .rc sẽ trùng resource và hỏng
+// link (CVT1100). Ở MSVC, file manifest được đưa thẳng cho linker qua
+// CMake để nó gộp vào manifest của chính nó.
+#ifdef HODION_RC_MANIFEST
 1 RT_MANIFEST "HodionKeyConfig.manifest"
+#endif
 
 IDD_CONFIG DIALOGEX 0, 0, 296, 250
 STYLE DS_SETFONT | DS_MODALFRAME | DS_CENTER | WS_POPUP | WS_CAPTION | WS_SYSMENU

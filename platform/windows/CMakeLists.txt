@@ -35,11 +35,19 @@ elseif(MINGW)
 endif()
 
 # App cấu hình — hộp thoại Win32 thuần, đọc/ghi cùng khoá registry.
-add_executable(hodionkey_config WIN32
+set(hodionkey_config_sources
   config/ConfigApp.cpp
   config/ConfigApp.rc
   src/Settings.cpp
 )
+if(MSVC)
+  # MSVC tự sinh manifest cho exe; CMake chuyển file .manifest này cho
+  # linker (/MANIFESTINPUT) để gộp vào đó. Không nhúng thêm từ .rc, nếu
+  # không linker báo CVT1100 "duplicate resource".
+  list(APPEND hodionkey_config_sources config/HodionKeyConfig.manifest)
+endif()
+
+add_executable(hodionkey_config WIN32 ${hodionkey_config_sources})
 
 set_target_properties(hodionkey_config PROPERTIES
   OUTPUT_NAME "HodionKeyConfig"
@@ -63,6 +71,8 @@ elseif(MINGW)
   target_compile_options(hodionkey_config PRIVATE -municode)
   target_link_options(hodionkey_config PRIVATE
     -municode -static-libgcc -static-libstdc++)
+  # ld không tự sinh manifest, nên windres nhúng manifest từ .rc.
+  target_compile_definitions(hodionkey_config PRIVATE HODION_RC_MANIFEST)
 endif()
 
 # Kiểm thử tầng Windows: vòng đọc/ghi registry + theo dõi thay đổi cấu hình.
