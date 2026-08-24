@@ -138,6 +138,7 @@ STDMETHODIMP CTextService::ActivateEx(ITfThreadMgr* ptim, TfClientId tid,
 STDMETHODIMP CTextService::Deactivate() {
   FinalizeComposition();
   watcher_.stop();
+  hostClient_.Close();
   UnregisterToggleKey();
 
   if (threadMgr_) {
@@ -316,7 +317,8 @@ void CTextService::FinalizeComposition() {
   // không phải tiếng Việt hợp lệ. Vì vậy phải hỏi engine chứ không giữ
   // nguyên những gì đang hiện — nếu không, chốt bằng Enter/Tab/mũi tên sẽ
   // bỏ lỡ việc khôi phục mà chốt bằng dấu cách vẫn làm.
-  const std::wstring text = HodionToWide(engine_.commit());
+  const std::wstring text =
+      MaybeRestoreDiacritics(HodionToWide(engine_.commit()));
   if (!composition_ || !compositionContext_) {
     composition_.reset();
     compositionContext_.reset();
@@ -348,6 +350,7 @@ void CTextService::ApplySettings(const HodionSettings& s) {
   engine_.set_config(s.engine);
   vietnamese_ = s.vietnamese_on;
   skipInputScopes_ = s.skip_input_scopes;
+  autoDiacritics_ = s.auto_diacritics;
   InvalidateInputScope();
 
   if (!(s.toggle == toggleKey_)) {

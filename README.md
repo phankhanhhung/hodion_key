@@ -32,7 +32,7 @@ với **engine gõ tách rời hoàn toàn** để port sang macOS/Linux.
 
 ```
 engine/                   Lõi bộ gõ — C++17 thuần, không phụ thuộc OS + C ABI
-wordlist/                 Từ điển tiếng Anh — tầng riêng, tùy chọn, portable
+wordlist/                 Từ điển tiếng Anh + đoán dấu — tầng riêng, portable
 platform/windows/src      TSF text service (COM DLL, không ATL/WRL)
 platform/windows/config   Tiến trình nền: khay hệ thống + hộp thoại cấu hình
 platform/windows/tests    Kiểm thử tầng Windows (registry, watcher)
@@ -225,9 +225,10 @@ hộp thoại chạy rồi thoát. Nó giữ icon trạng thái ở khay hệ th
 - Icon bám theo phím `Ctrl + Space` bấm trong ứng dụng khác — trạng thái
   đi qua registry nên hai bên luôn khớp.
 
-Nó cũng là chỗ dành cho **phần logic nặng** sau này (đoán dấu cho chữ không
-dấu): mô hình 20–50 MB không thể nạp vào từng ứng dụng đang gõ, nên nó nằm
-ở một tiến trình duy nhất và DLL hỏi sang qua named pipe.
+Nó cũng là chỗ ở của **phần logic nặng**: mô hình 20–50 MB không thể nạp vào
+từng ứng dụng đang gõ, nên nó nằm ở một tiến trình duy nhất và DLL hỏi sang
+qua named pipe. Kênh này chở chữ người dùng đang gõ, nên pipe mang tên gắn
+SID và có DACL chỉ cho chính người đó cộng SYSTEM.
 
 Quan hệ phụ thuộc chỉ có một chiều: **gõ không cần tiến trình này**. Nó
 tắt, chưa chạy hay treo thì bộ gõ vẫn gõ y như cũ, không chậm một mili giây
@@ -235,6 +236,50 @@ nào.
 
 Đừng chạy nó bằng quyền Administrator: khi đó nó ở integrity level cao hơn
 các ứng dụng thường và chúng sẽ không nói chuyện được với nó.
+
+## Tự thêm dấu cho chữ không dấu
+
+Bật trong menu khay hoặc app cấu hình (**mặc định tắt** — nó đổi thứ bạn vừa
+gõ, nên phải là lựa chọn tường minh). Lúc chốt từ, DLL hỏi tiến trình nền và
+chỉ đổi khi chữ đó có **đúng một** cách viết có dấu tồn tại thật:
+
+```
+nguyet  →  nguyệt        (chỉ có một cách viết)
+thuo    →  thuở
+toan    →  toan          (để nguyên: toan/toàn/toán/toản — không có căn cứ)
+duong   →  duong         (để nguyên: 7 cách viết có thật)
+```
+
+Đó là **nửa dễ** của bài toán, và nó nhỏ hơn ta tưởng: đo trên từ điển 6.502
+âm tiết thì chỉ **15,6%** chuỗi không dấu có đúng một cách viết. Nửa còn lại
+cần mô hình ngôn ngữ nhìn cả câu (`buoi toi` → *buổi tối* nhưng `toi qua
+duong` → *tôi qua đường*), tức là n-gram + Viterbi trong
+[lộ trình](docs/roadmap-smart-input.md). Không đoán bừa là cố ý: đoán sai
+im lặng là kiểu hỏng tệ nhất của một bộ gõ.
+
+Hỏi sang tiến trình nền có **hạn cứng 20 ms** và chỉ xảy ra lúc chốt từ,
+không phải mỗi phím. Tiến trình nền chưa chạy, đã tắt hay đang treo thì gõ
+vẫn y như cũ.
+
+### Bảng âm tiết không nằm trong repo
+
+Tính năng này cần một bảng âm tiết tiếng Việt có thật, và bảng đó **cố ý
+không được commit**: từ điển chính tả sẵn có (gói `hunspell-vi` của
+LibreOffice) mang giấy phép **GPL-2**, đưa dữ liệu dẫn xuất từ nó vào đây sẽ
+kéo GPL-2 lên cả dự án — đó là quyết định của chủ dự án, không phải của một
+script. Tự sinh trên máy mình thì không phát hành lại gì cả nên không sao:
+
+```sh
+sudo apt-get install hunspell-vi
+cmake --build build --target hodion_wordscan
+python3 tools/build_syllables.py \
+    --dic  /usr/share/hunspell/vi_VN.dic \
+    --scan build/engine/hodion_wordscan \
+    --out  viet-syllables.txt
+```
+
+Đặt `viet-syllables.txt` cạnh `HodionKeyConfig.exe`. Không có file thì mục
+menu bị làm mờ và ghi rõ đang thiếu gì; mọi thứ khác chạy như thường.
 
 ## Cấu hình
 
@@ -257,6 +302,7 @@ hoặc triển khai theo chính sách. Mặc định trùng với mặc định 
 | `EnglishDetect` | `1`      | Trả lại nguyên chữ với từ tiếng Anh đã biết      |
 | `VietnameseOn`  | `1`      | Đang bật gõ tiếng Việt (phím chuyển ghi vào đây) |
 | `SkipInputScopes` | `1`    | Tự tắt ở ô URL / email / mật khẩu / ô số        |
+| `AutoDiacritics` | `0`     | Tự thêm dấu cho chữ không dấu (cần tiến trình nền) |
 | `ToggleKey`     | `0x20`   | Virtual-key của phím chuyển (`0x20` = Space)     |
 | `ToggleMods`    | `2`      | Modifier: 1 = Alt, 2 = Ctrl, 4 = Shift (cộng dồn) |
 
@@ -270,7 +316,9 @@ phím đó khi gõ, nên giá trị hỏng sẽ tự quay về mặc định.
 - [x] Phím chuyển Việt/Anh + app cấu hình (áp dụng tức thì)
 - [x] Gõ trộn Việt–Anh: tự tắt theo input scope + phím bỏ dấu cho một từ
 - [x] Gõ trộn Việt–Anh: từ điển Anh quyết định lúc chốt từ
-- [ ] Tự thêm dấu cho chữ không dấu (n-gram + Viterbi, tiến trình riêng)
+- [x] Tiến trình nền làm host cho logic nặng (named pipe, hạn cứng 20 ms)
+- [x] Tự thêm dấu cho chữ không dấu — phần không nhập nhằng (15,6%)
+- [ ] Tự thêm dấu phần còn lại: n-gram + Viterbi nhìn cả câu (cần kho văn bản)
 - [x] Reconversion — sửa từ đã chốt không phải gõ lại
 - [ ] Port macOS (IMKit) và Linux (fcitx5) trên cùng engine
 - [ ] Gõ tắt (macro) người dùng định nghĩa, VIQR

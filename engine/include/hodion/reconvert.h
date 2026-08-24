@@ -35,8 +35,15 @@ std::u32string strip_diacritics(const std::u32string& s);
 // một thứ tự đoán mò còn tệ hơn một thứ tự học thuộc được).
 //
 // cfg chỉ dùng tone_style (chỗ đặt dấu thanh: "hòa" hay "hoà").
+//
+// `known` (tuỳ chọn) là tập âm tiết có thật. Có nó thì thứ tự đổi thành:
+// chữ đang có trước, rồi tới những chữ CÓ THẬT xếp theo khoảng cách, rồi
+// mới tới phần còn lại. Cố ý không lọc bỏ phần còn lại: từ điển nào cũng
+// thiếu tên riêng và chữ mới, mà một danh sách chọn thiếu mất đúng chữ
+// người ta cần thì tệ hơn là một danh sách hơi dài.
 std::vector<std::u32string> syllable_variants(const std::u32string& word,
                                               const Config& cfg,
-                                              size_t max_results = 64);
+                                              size_t max_results = 64,
+                                              const SyllableSet* known = nullptr);
 
 }  // namespace hodion

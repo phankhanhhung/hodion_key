@@ -35,6 +35,10 @@ struct HodionSettings {
   // Tự tắt tiếng Việt ở ô mà ứng dụng khai là URL/email/mật khẩu/số
   // (hỏi qua ITfInputScope — xem InputScope.cpp).
   bool skip_input_scopes = true;
+  // Tự thêm dấu cho chữ không dấu lúc chốt từ, hỏi qua tiến trình nền.
+  // Mặc định TẮT: nó đổi thứ người dùng vừa gõ, nên phải là lựa chọn
+  // tường minh chứ không phải mặc định.
+  bool auto_diacritics = false;
 };
 
 // Danh sách phím chuyển dựng sẵn cho app cấu hình (phần tử 0 là mặc định).

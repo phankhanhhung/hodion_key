@@ -2,7 +2,11 @@
 #
 # Lõi engine KHÔNG phụ thuộc thư viện này; nó chỉ cung cấp một cài đặt của
 # hodion::ForeignWords để frontend nạp vào bằng Engine::set_foreign_words().
-add_library(hodion_words STATIC src/english_words.cpp)
+add_library(hodion_words STATIC
+  src/english_words.cpp
+  src/viet_words.cpp
+  src/predict.cpp
+)
 target_include_directories(hodion_words PUBLIC include)
 target_include_directories(hodion_words PRIVATE data)
 target_link_libraries(hodion_words PUBLIC hodion_engine)

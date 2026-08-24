@@ -131,6 +131,8 @@ HRESULT CTextService::HandleEatenKey(ITfContext* pic, WPARAM wParam,
     });
   }
 
+  // Người dùng đã chủ động huỷ biến đổi cho từ này thì đừng đụng vào nó nữa.
+  const bool wasLiteral = engine_.literal();
   const auto r = engine_.process_char(static_cast<char32_t>(ch));
   switch (r.action) {
     case hodion::Engine::Result::Action::Composing: {
@@ -146,7 +148,9 @@ HRESULT CTextService::HandleEatenKey(ITfContext* pic, WPARAM wParam,
       return hr;
     }
     case hodion::Engine::Result::Action::Commit: {
-      const std::wstring text = HodionToWide(r.text);
+      const std::wstring raw = HodionToWide(r.text);
+      const std::wstring text =
+          wasLiteral ? raw : MaybeRestoreDiacritics(raw);
       return RequestSyncEdit(pic, [&](TfEditCookie ec) {
         HRESULT hr = EnsureComposition(ec, pic);
         if (SUCCEEDED(hr)) hr = SetCompositionText(ec, text);

@@ -21,7 +21,7 @@ IDI_APP     ICON "icons/hodionkey.ico"
 IDI_TRAY_VI ICON "icons/hodionkey-vi.ico"
 IDI_TRAY_EN ICON "icons/hodionkey-en.ico"
 
-IDD_CONFIG DIALOGEX 0, 0, 296, 312
+IDD_CONFIG DIALOGEX 0, 0, 296, 364
 STYLE DS_SETFONT | DS_MODALFRAME | DS_CENTER | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "HodionKey"
 FONT 8, "MS Shell Dlg", 400, 0, 0x1
@@ -58,15 +58,21 @@ BEGIN
                     "Button", BS_AUTOCHECKBOX | WS_TABSTOP, 14, 186, 268, 12
     LTEXT           "", IDC_LBL_MIXEDHINT, 14, 202, 268, 10
 
-    GROUPBOX        "Vietnamese on/off", IDC_GRP_TOGGLE, 7, 225, 282, 62
-    LTEXT           "Toggle key:", IDC_LBL_TOGGLE, 14, 241, 80, 10
-    COMBOBOX        IDC_COMBO_TOGGLE, 98, 239, 120, 120,
+    GROUPBOX        "Automatic diacritics", IDC_GRP_PREDICT, 7, 210, 282, 45
+    CONTROL         "Add diacritics to toneless words", IDC_OPT_AUTODIACRITIC,
+                    "Button", BS_AUTOCHECKBOX | WS_GROUP | WS_TABSTOP,
+                    14, 224, 268, 12
+    LTEXT           "", IDC_LBL_PREDICTHINT, 14, 239, 268, 10
+
+    GROUPBOX        "Vietnamese on/off", IDC_GRP_TOGGLE, 7, 261, 282, 62
+    LTEXT           "Toggle key:", IDC_LBL_TOGGLE, 14, 277, 80, 10
+    COMBOBOX        IDC_COMBO_TOGGLE, 98, 275, 120, 120,
                     CBS_DROPDOWNLIST | WS_GROUP | WS_TABSTOP | WS_VSCROLL
     CONTROL         "Vietnamese input is on", IDC_CHK_VIETNAMESE, "Button",
-                    BS_AUTOCHECKBOX | WS_TABSTOP, 14, 258, 268, 12
-    LTEXT           "", IDC_LBL_HINT, 14, 272, 268, 10
+                    BS_AUTOCHECKBOX | WS_TABSTOP, 14, 294, 268, 12
+    LTEXT           "", IDC_LBL_HINT, 14, 308, 268, 10
 
-    PUSHBUTTON      "Defaults", IDC_DEFAULTS, 7, 289, 80, 16, WS_GROUP | WS_TABSTOP
-    DEFPUSHBUTTON   "OK", IDOK, 155, 289, 64, 16, WS_TABSTOP
-    PUSHBUTTON      "Cancel", IDCANCEL, 225, 289, 64, 16, WS_TABSTOP
+    PUSHBUTTON      "Defaults", IDC_DEFAULTS, 7, 330, 80, 16, WS_GROUP | WS_TABSTOP
+    DEFPUSHBUTTON   "OK", IDOK, 155, 330, 64, 16, WS_TABSTOP
+    PUSHBUTTON      "Cancel", IDCANCEL, 225, 330, 64, 16, WS_TABSTOP
 END

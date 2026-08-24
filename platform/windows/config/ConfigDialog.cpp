@@ -44,6 +44,11 @@ const Labels kLabels[] = {
      L"Trả lại nguyên chữ với từ tiếng Anh đã biết (meeting)"},
     {IDC_LBL_MIXEDHINT,
      L"Ctrl + Backspace khi đang gõ dở: bỏ dấu cho riêng từ đó."},
+    {IDC_GRP_PREDICT, L"Tự thêm dấu"},
+    {IDC_OPT_AUTODIACRITIC,
+     L"Thêm dấu cho chữ không dấu khi chốt từ (nguyet → nguyệt)"},
+    {IDC_LBL_PREDICTHINT,
+     L"Chỉ đổi khi chữ đó có đúng MỘT cách viết có dấu; cần tiến trình nền."},
     {IDC_GRP_TOGGLE, L"Chuyển Việt / Anh"},
     {IDC_LBL_TOGGLE, L"&Phím chuyển:"},
     {IDC_CHK_VIETNAMESE, L"Đang &bật gõ tiếng Việt"},
@@ -160,6 +165,7 @@ void LoadIntoDialog(HWND dlg, const HodionSettings& s) {
   Check(dlg, IDC_OPT_BRACKETS, s.engine.telex_brackets);
   Check(dlg, IDC_OPT_ENGLISH, s.engine.english_detect);
   Check(dlg, IDC_OPT_INPUTSCOPE, s.skip_input_scopes);
+  Check(dlg, IDC_OPT_AUTODIACRITIC, s.auto_diacritics);
   Check(dlg, IDC_CHK_VIETNAMESE, s.vietnamese_on);
 
   FillToggleCombo(dlg, s.toggle);
@@ -180,6 +186,7 @@ HodionSettings ReadFromDialog(HWND dlg, const ToggleKey& fallback) {
   s.engine.telex_brackets = Checked(dlg, IDC_OPT_BRACKETS);
   s.engine.english_detect = Checked(dlg, IDC_OPT_ENGLISH);
   s.skip_input_scopes = Checked(dlg, IDC_OPT_INPUTSCOPE);
+  s.auto_diacritics = Checked(dlg, IDC_OPT_AUTODIACRITIC);
   s.vietnamese_on = Checked(dlg, IDC_CHK_VIETNAMESE);
   s.toggle = SelectedToggleKey(dlg, fallback);
   return s;

@@ -28,6 +28,18 @@ class ForeignWords {
   virtual bool contains(const std::u32string& key) const = 0;
 };
 
+// Tập âm tiết tiếng Việt CÓ THẬT, do host cấp.
+//
+// Engine biết "duông" ghép đúng luật âm tiết, nhưng không biết nó có phải
+// một chữ người ta dùng hay không — đó là kiến thức từ vựng, không suy ra
+// được từ bảng vần. Ai muốn phần kiến thức đó thì nạp vào.
+class SyllableSet {
+ public:
+  virtual ~SyllableSet() = default;
+  // `syllable` là một âm tiết đã dựng sẵn, chữ thường.
+  virtual bool contains(const std::u32string& syllable) const = 0;
+};
+
 enum class InputMethod : uint8_t {
   Telex = 0,
   Vni = 1,

@@ -19,8 +19,12 @@
 #include <string>
 
 #include "ConfigDialog.h"
+#include "HostServer.h"
 #include "Settings.h"
 #include "TrayIcon.h"
+#include "hodion/predict.h"
+#include "hodion/utf.h"
+#include "hodion/viet_words.h"
 #include "resource.h"
 
 namespace {
@@ -31,10 +35,17 @@ constexpr WCHAR kShowMessageName[] = L"HodionKey.ShowConfig";
 
 constexpr UINT WM_TRAY_CALLBACK = WM_APP + 1;
 
+// Bảng âm tiết đặt cạnh exe. Cố ý là file rời chứ không biên dịch vào:
+// từ điển nguồn là GPL-2 (xem tools/build_syllables.py), và để bảng rời thì
+// sau này thay bằng mô hình tốt hơn cũng không phải dịch lại.
+constexpr WCHAR kSyllableFile[] = L"viet-syllables.txt";
+constexpr DWORD kMaxSyllableFileBytes = 8u * 1024 * 1024;
+
 enum MenuId {
   kMenuVietnamese = 100,
   kMenuTelex,
   kMenuVni,
+  kMenuAutoDiacritics,
   kMenuConfig,
   kMenuAutoStart,
   kMenuQuit,
@@ -44,23 +55,98 @@ UINT g_showMessage = 0;
 
 struct Host {
   HINSTANCE instance = nullptr;
+  hodion::SyllableList syllables;
   HWND window = nullptr;
   TrayIcon tray;
   SettingsWatcher watcher;
   HodionSettings settings;
+  HostServer server;
+  // Cấu hình mà luồng phục vụ đọc. Chỉ đổi bằng cách ghi nguyên khối từ
+  // luồng UI, và mỗi trường đọc ra đều tự nó hợp lệ, nên không cần khoá.
+  volatile bool serverVietnameseStyleModern = false;
   bool inDialog = false;
 };
 
 Host* g_host = nullptr;
 
+// Đọc cả file vào bộ nhớ. Dùng API Win32 chứ không dùng ifstream vì đường
+// dẫn có thể chứa ký tự ngoài ASCII.
+bool ReadWholeFile(const std::wstring& path, std::string* out) {
+  HANDLE file = CreateFileW(path.c_str(), GENERIC_READ, FILE_SHARE_READ,
+                            nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL,
+                            nullptr);
+  if (file == INVALID_HANDLE_VALUE) return false;
+
+  LARGE_INTEGER size;
+  if (!GetFileSizeEx(file, &size) || size.QuadPart <= 0 ||
+      size.QuadPart > kMaxSyllableFileBytes) {
+    CloseHandle(file);
+    return false;
+  }
+
+  out->resize(static_cast<size_t>(size.QuadPart));
+  DWORD read = 0;
+  const bool ok = ReadFile(file, &(*out)[0], static_cast<DWORD>(out->size()),
+                           &read, nullptr) &&
+                  read == out->size();
+  CloseHandle(file);
+  if (!ok) out->clear();
+  return ok;
+}
+
+// Nạp bảng âm tiết đặt cạnh exe. Không có thì phần đoán dấu không bật được;
+// mọi thứ khác chạy như thường.
+void LoadSyllables(Host& host) {
+  WCHAR path[MAX_PATH] = {};
+  const DWORD len = GetModuleFileNameW(nullptr, path, ARRAYSIZE(path));
+  if (len == 0 || len >= ARRAYSIZE(path)) return;
+
+  std::wstring dir(path, len);
+  const size_t slash = dir.find_last_of(L'\\');
+  if (slash == std::wstring::npos) return;
+  dir.resize(slash + 1);
+
+  std::string contents;
+  if (!ReadWholeFile(dir + kSyllableFile, &contents)) return;
+  host.syllables.load(contents);
+}
+
+// Chạy trên luồng của HostServer.
+std::string HandleRequest(hodionipc::Op op, const std::string& payload) {
+  switch (op) {
+    case hodionipc::Op::Ping:
+      return "HodionKey host 1";
+
+    case hodionipc::Op::Restore: {
+      Host* host = g_host;
+      // Bảng nạp xong TRƯỚC khi mở kênh và không đổi nữa, nên luồng phục vụ
+      // đọc thoải mái mà không cần khoá.
+      if (!host || host->syllables.empty()) return {};
+      hodion::Config cfg;
+      cfg.tone_style = host->serverVietnameseStyleModern
+                           ? hodion::ToneStyle::Modern
+                           : hodion::ToneStyle::Traditional;
+      const std::u32string word = hodion::utf::from_utf8(payload);
+      return hodion::utf::to_utf8(
+          hodion::restore_diacritics(word, cfg, host->syllables));
+    }
+
+    default:
+      return {};
+  }
+}
+
 std::wstring Tooltip(const HodionSettings& s) {
   std::wstring tip = s.vietnamese_on ? L"HodionKey — đang gõ tiếng Việt"
                                      : L"HodionKey — đang tắt (gõ thẳng)";
   tip += s.engine.method == hodion::InputMethod::Vni ? L"\nVNI" : L"\nTelex";
+  if (s.auto_diacritics) tip += L" · tự thêm dấu";
   return tip;
 }
 
 void RefreshTray(Host& host) {
+  host.serverVietnameseStyleModern =
+      host.settings.engine.tone_style == hodion::ToneStyle::Modern;
   host.tray.SetState(host.settings.vietnamese_on, Tooltip(host.settings));
 }
 
@@ -92,6 +178,14 @@ void ShowMenu(Host& host) {
   AppendMenuW(menu, MF_STRING | (telex ? MF_CHECKED : 0), kMenuTelex,
               L"&Telex");
   AppendMenuW(menu, MF_STRING | (!telex ? MF_CHECKED : 0), kMenuVni, L"V&NI");
+  AppendMenuW(menu, MF_SEPARATOR, 0, nullptr);
+  const bool canPredict = host.server.running() && !host.syllables.empty();
+  AppendMenuW(menu,
+              MF_STRING | (host.settings.auto_diacritics ? MF_CHECKED : 0) |
+                  (canPredict ? 0 : MF_GRAYED),
+              kMenuAutoDiacritics,
+              canPredict ? L"Tự thêm &dấu cho chữ không dấu"
+                         : L"Tự thêm &dấu — thiếu viet-syllables.txt");
   AppendMenuW(menu, MF_SEPARATOR, 0, nullptr);
   AppendMenuW(menu, MF_STRING, kMenuConfig, L"&Cấu hình…");
   AppendMenuW(menu, MF_STRING | (HodionGetAutoStart() ? MF_CHECKED : 0),
@@ -130,6 +224,10 @@ void OnCommand(Host& host, int id) {
       host.settings.engine.method = id == kMenuTelex
                                         ? hodion::InputMethod::Telex
                                         : hodion::InputMethod::Vni;
+      SaveAndRefresh(host);
+      break;
+    case kMenuAutoDiacritics:
+      host.settings.auto_diacritics = !host.settings.auto_diacritics;
       SaveAndRefresh(host);
       break;
     case kMenuConfig:
@@ -256,6 +354,10 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, LPWSTR commandLine, int) {
 
   host.settings = LoadHodionSettings();
   host.watcher.start();
+  LoadSyllables(host);  // phải xong TRƯỚC khi mở kênh
+  // Kênh cho DLL. Mở không được cũng không sao — chỉ là không có phần đoán
+  // dấu; mọi thứ khác vẫn chạy.
+  host.server.Start(HandleRequest);
   if (!host.tray.Create(host.window, WM_TRAY_CALLBACK, instance)) {
     // Không có khay hệ thống (phiên Server Core, shell lạ): vẫn mở được
     // hộp thoại cấu hình rồi thoát, chứ không im lặng chạy vô hình.
@@ -294,6 +396,7 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, LPWSTR commandLine, int) {
     if (quit) break;
   }
 
+  host.server.Stop();
   host.tray.Destroy();
   host.watcher.stop();
   g_host = nullptr;

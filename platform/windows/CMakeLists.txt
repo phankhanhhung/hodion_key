@@ -5,7 +5,10 @@ add_library(hodionkey_tsf SHARED
   src/DllMain.cpp
   src/Guids.cpp
   src/InputScope.cpp
+  src/HostChannel.cpp
+  src/HostClient.cpp
   src/KeyHandler.cpp
+  src/Predict.cpp
   src/Reconversion.cpp
   src/Register.cpp
   src/Settings.cpp
@@ -41,9 +44,11 @@ endif()
 # App cấu hình — hộp thoại Win32 thuần, đọc/ghi cùng khoá registry.
 set(hodionkey_config_sources
   config/Host.cpp
+  config/HostServer.cpp
   config/TrayIcon.cpp
   config/ConfigDialog.cpp
   config/ConfigApp.rc
+  src/HostChannel.cpp
   src/Settings.cpp
 )
 if(MSVC)
@@ -63,10 +68,12 @@ target_include_directories(hodionkey_config PRIVATE src config)
 
 target_link_libraries(hodionkey_config PRIVATE
   hodion_engine
+  hodion_words
   comctl32
   advapi32
   user32
   shell32
+  ole32
 )
 
 target_compile_definitions(hodionkey_config PRIVATE UNICODE _UNICODE)

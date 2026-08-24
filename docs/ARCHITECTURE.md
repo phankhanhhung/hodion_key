@@ -266,7 +266,39 @@ Vài chỗ dễ sai đã xử lý:
   hơn ứng dụng thường và named pipe của nó sẽ không nhận được kết nối từ
   chúng. Script cài đặt vì thế không tự chạy nó.
 
-## Từ điển tiếng Anh (`wordlist/`)
+### Kênh giữa DLL và host
+
+Named pipe, một yêu cầu một trả lời, khuôn gói tin ở `src/HostChannel.h`
+(dùng chung cả hai đầu).
+
+**Bảo mật là chuyện thật ở đây, không phải hình thức: kênh này chở chữ
+người dùng đang gõ.** Pipe mang tên gắn SID người dùng (hai người cùng
+đăng nhập một máy không đụng nhau) và có DACL tường minh `D:P` chỉ cho
+chính người đó cộng SYSTEM. Không dựng được descriptor thì **không mở
+kênh** — thà mất tính năng còn hơn để tiến trình khác đọc được, hoặc giả
+làm host mà nhét chữ vào.
+
+Hệ quả đã biết: ứng dụng chạy ở integrity level thấp (tab trình duyệt
+trong sandbox) không ghi lên được object ở mức trung bình, nên ở đó không
+có phần đoán dấu. Đổi lại, host cũng không được chạy bằng quyền
+Administrator — khi đó nó ở mức cao và ứng dụng thường mới là bên không
+với tới.
+
+**Phía DLL (`HostClient`) không bao giờ chờ lâu.** Hạn cứng 20 ms bằng
+overlapped I/O; quá hạn thì `CancelIoEx`, đợi I/O kết thúc thật sự (nếu
+không kernel còn đang ghi vào bộ nhớ đã chết), bỏ kết nối và gõ tiếp như
+không có gì. Kết nối hỏng thì im 3 giây rồi mới thử lại — host chưa chạy
+là chuyện thường, thử lại mỗi lần chốt từ chỉ tổ phí.
+
+**Phía host (`HostServer`)** giữ 4 instance pipe, mỗi cái một luồng, lặp
+nối → đọc → trả lời → ngắt. Một kết nối phục vụ nhiều yêu cầu liên tiếp
+nên không phải trả giá nối lại mỗi từ. Số luồng cố định: số ứng dụng gõ
+cùng lúc là hữu hạn, yêu cầu thì vài chục micro giây, và client đã có hạn
+cứng nên kẹt cũng không ai phải chờ.
+
+Gói tin sai magic/phiên bản/độ dài là ngắt kết nối, không đoán.
+
+## Từ điển tiếng Anh và đoán dấu (`wordlist/`)
 
 Tầng **riêng, tùy chọn**: lõi engine không chứa dữ liệu nào và vẫn build,
 chạy, pass test đầy đủ khi không có thư viện này. Engine chỉ khai một giao
@@ -361,7 +393,40 @@ Hai tính chất được test kiểm trực tiếp:
 - **Đúng** — mọi biến thể cùng chuỗi chữ cái gốc với đầu vào, và sinh lại
   từ bất kỳ biến thể nào cũng ra đúng cùng một họ.
 
-### Cách lưu
+### Đoán dấu cho chữ không dấu (`predict.cpp`)
+
+`restore_diacritics` lấy tập biến thể của một chuỗi không dấu, giao với
+bảng âm tiết **có thật**, và chỉ trả lời khi còn **đúng một**. Hai cái trở
+lên là nhập nhằng, và không có ngữ cảnh thì chọn bừa còn tệ hơn để nguyên —
+đoán sai im lặng là kiểu hỏng tệ nhất của một bộ gõ.
+
+Đo trên từ điển 6.502 âm tiết: **15,6%** chuỗi không dấu có đúng một cách
+viết. Đó là toàn bộ những gì làm được mà không cần mô hình. Phần còn lại
+cần n-gram + Viterbi nhìn cả câu và cần kho văn bản để huấn luyện; chỗ cắm
+đã sẵn — cùng một hàm, cùng một kênh IPC, chỉ đổi cách xếp hạng.
+
+Test kiểm hai tính chất trên từng âm tiết: thứ đoán ra phải **có thật**, và
+phải đúng là chữ vừa gõ đã thêm dấu chứ không phải một chữ khác. Vi phạm
+cái thứ hai nghĩa là bộ gõ tự ý thay từ của người dùng.
+
+### Bảng âm tiết tiếng Việt: nạp lúc chạy, không nằm trong mã nguồn
+
+Khác hẳn bảng tiếng Anh, và vì lý do giấy phép chứ không phải kỹ thuật. Từ
+điển chính tả tiếng Việt sẵn có (gói `hunspell-vi` của LibreOffice) mang
+giấy phép **GPL-2** — mục `dictionaries/vi/*` trong file copyright; dòng
+MPL-2.0 ở đầu file là cho các từ điển khác. Đưa dữ liệu dẫn xuất từ nó vào
+mã nguồn sẽ kéo GPL-2 lên cả dự án, và đó là quyết định của chủ dự án.
+
+Nên `SyllableList` nạp một file văn bản UTF-8 đặt cạnh exe
+(`viet-syllables.txt`), sinh bằng `tools/build_syllables.py`. Không có file
+thì mục menu bị làm mờ kèm lý do; mọi thứ khác chạy như thường.
+
+Cách này còn hợp với hướng đi sau: **đổi mô hình không phải dịch lại gì.**
+
+`SyllableList::load` nhận NỘI DUNG chứ không nhận đường dẫn — đọc file là
+việc của tầng host (đường dẫn Windows cần API riêng), còn tầng này portable.
+
+### Cách lưu bảng tiếng Anh
 
 Các bản ghi xếp theo độ dài thành từng khối **độ dài cố định, không ký tự
 ngăn cách**, mỗi khối sắp tăng dần. Tra bằng tìm nhị phân thẳng trên mảng:

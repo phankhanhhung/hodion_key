@@ -61,6 +61,24 @@ std::u32string with_stroke_d(const std::u32string& s) {
   return out;
 }
 
+// Hạ chữ hoa về chữ thường, kể cả chữ tiếng Việt dựng sẵn.
+std::u32string lowered(const std::u32string& s) {
+  std::u32string out;
+  out.reserve(s.size());
+  for (char32_t c : s) {
+    char32_t base = 0;
+    Mark mark = Mark::None;
+    ToneId tone = 0;
+    bool upper = false;
+    if (detail::decompose_char(c, &base, &mark, &tone, &upper)) {
+      out.push_back(detail::composed_char(base, mark, tone, false));
+    } else {
+      out.push_back(c);
+    }
+  }
+  return out;
+}
+
 }  // namespace
 
 std::u32string strip_diacritics(const std::u32string& s) {
@@ -91,7 +109,8 @@ std::u32string strip_diacritics(const std::u32string& s) {
 // theo lời hứa.
 std::vector<std::u32string> syllable_variants(const std::u32string& word,
                                               const Config& cfg,
-                                              size_t max_results) {
+                                              size_t max_results,
+                                              const SyllableSet* known) {
   std::vector<std::u32string> out;
   if (word.empty() || word.size() > kMaxSyllable || max_results == 0) {
     return out;
@@ -161,13 +180,18 @@ std::vector<std::u32string> syllable_variants(const std::u32string& word,
     for (size_t i = 0; i < plain; ++i) out.push_back(with_stroke_d(out[i]));
   }
 
-  // Chữ người dùng đang có tự khắc đứng đầu: nó là phương án DUY NHẤT có
-  // khoảng cách 0 (khác dấu là khác chuỗi, mà khác chuỗi thì khoảng cách
-  // khác 0), nên không cần đẩy riêng nó lên.
+  // Ba bậc ưu tiên. Chữ người dùng đang có tự khắc đứng đầu: nó là phương
+  // án DUY NHẤT có khoảng cách 0 (khác dấu là khác chuỗi, mà khác chuỗi thì
+  // khoảng cách khác 0).
+  auto rank = [&distance, known](const std::u32string& s) {
+    const int d = distance(s);
+    if (d == 0) return std::make_pair(0, 0);            // chính nó
+    if (known && known->contains(lowered(s))) return std::make_pair(1, d);
+    return std::make_pair(2, d);                        // chỉ hợp lệ cấu trúc
+  };
   std::stable_sort(out.begin(), out.end(),
-                   [&distance](const std::u32string& a,
-                               const std::u32string& b) {
-                     return distance(a) < distance(b);
+                   [&rank](const std::u32string& a, const std::u32string& b) {
+                     return rank(a) < rank(b);
                    });
 
   if (out.size() > max_results) out.resize(max_results);

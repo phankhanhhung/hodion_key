@@ -5,6 +5,7 @@
 #include <vector>
 
 #include "HodionTsf.h"
+#include "HostClient.h"
 #include "Settings.h"
 #include "hodion/engine.h"
 
@@ -125,6 +126,11 @@ class CTextService : public ITfTextInputProcessorEx,
                              ITfRange** ppWord, std::wstring* outText);
   std::vector<std::wstring> ReconvertCandidates(const std::wstring& word) const;
 
+  // --- Đoán dấu qua tiến trình nền (Predict.cpp) ---
+  // Trả về chuỗi đã thêm dấu, hoặc chính `text` khi không đổi gì. Không bao
+  // giờ chờ lâu: host chưa chạy thì trả lại nguyên văn ngay.
+  std::wstring MaybeRestoreDiacritics(const std::wstring& text);
+
   // --- Ngữ cảnh nhập liệu (InputScope.cpp) ---
   // Ô đang gõ có tự khai là URL / email / mật khẩu / số không? Hỏi lại một
   // lần sau mỗi lần đổi focus hoặc đổi context, không hỏi mỗi phím.
@@ -159,6 +165,8 @@ class CTextService : public ITfTextInputProcessorEx,
   bool toggleRegistered_ = false;
   bool vietnamese_ = true;
   bool skipInputScopes_ = true;
+  bool autoDiacritics_ = false;
+  HostClient hostClient_;
   bool scopeRaw_ = false;    // ô hiện tại không nên gõ tiếng Việt
   bool scopeKnown_ = false;  // đã hỏi ITfInputScope cho ô hiện tại chưa
   // Chặn vòng lặp khi chính ta ghi vào compartment OPENCLOSE.

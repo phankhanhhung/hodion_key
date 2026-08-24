@@ -26,6 +26,10 @@
 #define IDC_OPT_ENGLISH       1028
 #define IDC_LBL_MIXEDHINT     1029
 
+#define IDC_GRP_PREDICT       1050
+#define IDC_OPT_AUTODIACRITIC 1051
+#define IDC_LBL_PREDICTHINT   1052
+
 #define IDC_GRP_TOGGLE        1030
 #define IDC_LBL_TOGGLE        1031
 #define IDC_COMBO_TOGGLE      1032

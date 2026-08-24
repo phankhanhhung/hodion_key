@@ -76,6 +76,7 @@ int main() {
   s.engine.english_detect = false;
   s.vietnamese_on = false;
   s.skip_input_scopes = false;
+  s.auto_diacritics = true;
   s.toggle = ToggleKey{'Z', TF_MOD_ALT};
 
   Check(SaveHodionSettings(s), "SaveHodionSettings");
@@ -83,6 +84,7 @@ int main() {
   Check(SameEngine(loaded.engine, s.engine), "vòng đọc/ghi cấu hình engine");
   Check(!loaded.vietnamese_on, "vòng đọc/ghi trạng thái bật/tắt");
   Check(!loaded.skip_input_scopes, "vòng đọc/ghi bỏ qua ô URL/mật khẩu");
+  Check(loaded.auto_diacritics, "vòng đọc/ghi tự thêm dấu");
   Check(loaded.toggle == s.toggle, "vòng đọc/ghi phím chuyển");
 
   // Chỉ đổi trạng thái bật/tắt (đường đi khi người dùng bấm phím chuyển).
@@ -114,6 +116,8 @@ int main() {
         "mặc định trùng UniKey");
   Check(def.skip_input_scopes, "mặc định có bỏ qua ô URL/email/mật khẩu");
   Check(def.engine.english_detect, "mặc định có nhận diện từ tiếng Anh");
+  // Tự thêm dấu ĐỔI thứ người dùng vừa gõ, nên phải là lựa chọn tường minh.
+  Check(!def.auto_diacritics, "mặc định TẮT tự thêm dấu");
   int preset_count = 0;
   const TogglePreset* presets = HodionTogglePresets(&preset_count);
   Check(preset_count > 0 && presets[0].key == def.toggle,
