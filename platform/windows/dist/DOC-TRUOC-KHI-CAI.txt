@@ -1,0 +1,55 @@
+HodionKey — bản thử nghiệm
+==========================
+Commit: @COMMIT@
+Build:  @BUILD@
+
+⚠ ĐỌC KỸ TRƯỚC KHI CÀI
+----------------------
+Đây là BẢN THỬ, chưa từng chạy trên Windows thật. Tầng TSF mới chỉ được
+kiểm chứng ở mức biên dịch; engine gõ thì đã test rất kỹ (157.123 lượt
+kiểm tra, fuzz 37,7 triệu lượt, sanitizer sạch) nhưng phần ghép vào
+Windows thì chưa ai chạy thử.
+
+Rủi ro thực tế: bộ gõ có thể không hiện ra trong danh sách bàn phím, gõ
+sai trong vài ứng dụng, hoặc làm ứng dụng đang gõ bị treo. Nên thử trên
+máy phụ hoặc máy ảo trước. File chưa ký số nên Windows sẽ cảnh báo.
+
+CÁCH CÀI
+--------
+1. Giải nén ra thư mục CỐ ĐỊNH, ví dụ C:\Program Files\HodionKey
+   (đăng ký sẽ ghi nhớ đường dẫn — di chuyển hay xoá thư mục sau khi
+   cài là bộ gõ hỏng).
+2. Chuột phải vào CaiDat.bat → "Run as administrator".
+3. Settings → Time & language → Language & region → thêm "Tiếng Việt"
+   nếu chưa có.
+4. Bấm Win+Space để chuyển sang bàn phím "HodionKey".
+
+CÁCH DÙNG
+---------
+- Ctrl+Space : bật/tắt gõ tiếng Việt (không cần đổi bàn phím)
+- Esc        : trả lại đúng chuỗi phím vừa gõ (huỷ biến đổi)
+- Cấu hình   : chạy x64\HodionKeyConfig.exe
+
+Thử nhanh: gõ  vieejt nam  →  việt nam
+           gõ  dduongwf    →  đường
+           gõ  thuowr      →  thuở
+
+GỠ CÀI
+------
+Chuột phải GoCaiDat.bat → "Run as administrator".
+
+VÌ SAO CÓ CẢ x64 LẪN x86
+------------------------
+IME 64-bit chỉ nạp được vào tiến trình 64-bit. Muốn gõ được trong ứng
+dụng 32-bit (nhiều phần mềm cũ) thì phải đăng ký cả bản 32-bit — script
+cài đặt làm sẵn cả hai.
+
+Cả hai bản đều mới chỉ được biên dịch và chạy qua bộ test của engine,
+chưa từng gõ thật trên Windows.
+
+BÁO LỖI
+-------
+Nếu hỏng, cho tôi biết càng cụ thể càng tốt:
+- Bộ gõ có hiện trong danh sách bàn phím không?
+- Ứng dụng nào, gõ chuỗi phím gì, ra kết quả gì, đáng lẽ phải ra gì?
+- regsvr32 có báo lỗi không (chạy lại không kèm /s để thấy thông báo)?

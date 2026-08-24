@@ -27,6 +27,7 @@ engine/                   Lõi bộ gõ — C++17 thuần, không phụ thuộc 
 platform/windows/src      TSF text service (COM DLL, không ATL/WRL)
 platform/windows/config   App cấu hình (hộp thoại Win32 thuần)
 platform/windows/tests    Kiểm thử tầng Windows (registry, watcher)
+platform/windows/dist     Script cài/gỡ + hướng dẫn cho gói phát hành
 docs/                     Kiến trúc, đặc tả bộ luật UniKey, mutation testing
 tools/                    Công cụ dev (mutation testing)
 cmake/                    Toolchain cross-compile MinGW (CI trên Linux)
@@ -96,6 +97,16 @@ cmake --build build32 --config Release
 `cmake/mingw-w64-i686.cmake` cho x86.)
 
 ## Cài đặt trên Windows
+
+Cách nhanh nhất: vào tab **Actions** → mở lần chạy CI mới nhất → kéo xuống
+cuối trang **Summary** → tải artifact **`HodionKey-installer`**. Gói này có
+sẵn cả x64 lẫn x86 kèm script; giải nén ra thư mục cố định rồi chuột phải
+`CaiDat.bat` → *Run as administrator*.
+
+(Artifacts chỉ hiện ở trang Summary của lần chạy, không hiện trong trang
+chi tiết từng job.)
+
+Hoặc làm tay:
 
 1. Mở Command Prompt **quyền Administrator**.
 2. Đăng ký text service:

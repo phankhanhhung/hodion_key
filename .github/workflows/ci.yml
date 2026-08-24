@@ -89,6 +89,43 @@ jobs:
             build/platform/windows/Release/HodionKey.dll
             build/platform/windows/Release/HodionKeyConfig.exe
 
+  package:
+    # Gộp x64 + x86 + script cài đặt thành MỘT gói tải về là cài được ngay.
+    name: Gói cài đặt
+    needs: tsf-windows
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Tải binary x64
+        uses: actions/download-artifact@v4
+        with:
+          name: HodionKey-x64
+          path: pkg/x64
+      - name: Tải binary x86
+        uses: actions/download-artifact@v4
+        with:
+          name: HodionKey-Win32
+          path: pkg/x86
+      - name: Ghép script cài đặt và đóng dấu phiên bản
+        run: |
+          cp platform/windows/dist/CaiDat.bat pkg/
+          cp platform/windows/dist/GoCaiDat.bat pkg/
+          cp platform/windows/dist/DOC-TRUOC-KHI-CAI.txt pkg/
+          sed -i "s|@COMMIT@|${GITHUB_SHA} (${GITHUB_REF_NAME})|" \
+            pkg/DOC-TRUOC-KHI-CAI.txt
+          sed -i "s|@BUILD@|MSVC, dung CI ngay $(date -u +%Y-%m-%d)|" \
+            pkg/DOC-TRUOC-KHI-CAI.txt
+          echo "--- noi dung goi ---"
+          find pkg -type f | sort
+          test -f pkg/x64/HodionKey.dll
+          test -f pkg/x86/HodionKey.dll
+          test -f pkg/CaiDat.bat
+      - name: Tải lên gói cài đặt
+        uses: actions/upload-artifact@v4
+        with:
+          name: HodionKey-installer
+          path: pkg/
+
   tsf-mingw-cross:
     name: TSF DLL (cross-compile MinGW)
     runs-on: ubuntu-latest
