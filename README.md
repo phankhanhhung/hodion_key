@@ -84,8 +84,16 @@ cmake --build build --config Release
 Kết quả: `build\platform\windows\Release\HodionKey.dll` (text service) và
 `HodionKeyConfig.exe` (app cấu hình).
 
-(Cũng cross-compile được từ Linux bằng MinGW:
-`cmake -S . -B build-win -DCMAKE_TOOLCHAIN_FILE=cmake/mingw-w64-x86_64.cmake`.)
+Muốn gõ được cả trong **ứng dụng 32-bit** thì build và đăng ký thêm bản
+x86 — IME 64-bit không nạp được vào tiến trình 32-bit:
+
+```bat
+cmake -S . -B build32 -A Win32
+cmake --build build32 --config Release
+```
+
+(Cross-compile từ Linux bằng MinGW: `cmake/mingw-w64-x86_64.cmake` cho x64,
+`cmake/mingw-w64-i686.cmake` cho x86.)
 
 ## Cài đặt trên Windows
 
@@ -100,7 +108,16 @@ Kết quả: `build\platform\windows\Release\HodionKey.dll` (text service) và
    **Tiếng Việt** nếu chưa có — bàn phím **HodionKey** xuất hiện trong danh
    sách bàn phím của tiếng Việt. Chuyển bàn phím bằng `Win + Space`.
 
-Gỡ: `regsvr32 /u HodionKey.dll`.
+Bản 32-bit đăng ký bằng `regsvr32` trong `SysWOW64`:
+
+```bat
+%SystemRoot%\SysWOW64\regsvr32.exe HodionKey.dll
+```
+
+Lưu ý: `regsvr32` ghi nhớ đường dẫn tới DLL, nên hãy đặt file ở thư mục cố
+định trước khi đăng ký.
+
+Gỡ: `regsvr32 /u HodionKey.dll` (và bản `SysWOW64` tương ứng).
 
 ## Chuyển Việt / Anh
 
