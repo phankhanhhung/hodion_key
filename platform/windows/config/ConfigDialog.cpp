@@ -1,8 +1,11 @@
-// HodionKeyConfig — hộp thoại cấu hình bộ gõ.
+// Hộp thoại cấu hình bộ gõ.
 //
 // Chỉ đọc/ghi HKCU\Software\HodionKey; text service đang chạy tự nhận thay
 // đổi qua RegNotifyChangeKeyValue nên bấm OK là có hiệu lực ngay, không cần
 // khởi động lại ứng dụng đang gõ.
+//
+// Trước đây đây là toàn bộ chương trình. Nay nó chỉ là một mục trong menu
+// khay hệ thống — vòng đời tiến trình do Host.cpp giữ.
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #include <commctrl.h>
@@ -10,15 +13,11 @@
 
 #include <string>
 
+#include "ConfigDialog.h"
 #include "Settings.h"
 #include "resource.h"
 
 namespace {
-
-// Đưa cửa sổ của phiên bản đang chạy lên trước thay vì mở thêm hộp thoại.
-UINT g_showMessage = 0;
-constexpr WCHAR kMutexName[] = L"Local\\HodionKeyConfig.SingleInstance";
-constexpr WCHAR kShowMessageName[] = L"HodionKeyConfig.Show";
 
 struct Labels {
   int id;
@@ -190,15 +189,13 @@ INT_PTR CALLBACK DlgProc(HWND dlg, UINT msg, WPARAM wParam, LPARAM) {
   // Phím chuyển của cấu hình đang mở, dùng khi người dùng để mục "tự đặt".
   static ToggleKey s_toggle{};
 
-  if (msg == g_showMessage && g_showMessage != 0) {
-    if (IsIconic(dlg)) ShowWindow(dlg, SW_RESTORE);
-    SetForegroundWindow(dlg);
-    return TRUE;
-  }
-
   switch (msg) {
     case WM_INITDIALOG: {
       SetWindowTextW(dlg, L"HodionKey — Cấu hình bộ gõ");
+      SendMessageW(dlg, WM_SETICON, ICON_BIG,
+                   reinterpret_cast<LPARAM>(LoadIconW(
+                       GetModuleHandleW(nullptr),
+                       MAKEINTRESOURCEW(IDI_APP))));
       for (const Labels& l : kLabels) SetDlgItemTextW(dlg, l.id, l.text);
 
       const HodionSettings s = LoadHodionSettings();
@@ -261,30 +258,7 @@ INT_PTR CALLBACK DlgProc(HWND dlg, UINT msg, WPARAM wParam, LPARAM) {
 
 }  // namespace
 
-int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, LPWSTR, int) {
-  g_showMessage = RegisterWindowMessageW(kShowMessageName);
-
-  HANDLE mutex = CreateMutexW(nullptr, TRUE, kMutexName);
-  if (mutex && GetLastError() == ERROR_ALREADY_EXISTS) {
-    // Đã có hộp thoại đang mở — đánh thức nó rồi thoát.
-    if (g_showMessage != 0) {
-      SendMessageTimeoutW(HWND_BROADCAST, g_showMessage, 0, 0, SMTO_ABORTIFHUNG,
-                          200, nullptr);
-    }
-    CloseHandle(mutex);
-    return 0;
-  }
-
-  INITCOMMONCONTROLSEX icc;
-  icc.dwSize = sizeof(icc);
-  icc.dwICC = ICC_STANDARD_CLASSES;
-  InitCommonControlsEx(&icc);
-
-  DialogBoxParamW(instance, MAKEINTRESOURCEW(IDD_CONFIG), nullptr, DlgProc, 0);
-
-  if (mutex) {
-    ReleaseMutex(mutex);
-    CloseHandle(mutex);
-  }
-  return 0;
+INT_PTR HodionShowConfigDialog(HINSTANCE instance, HWND parent) {
+  return DialogBoxParamW(instance, MAKEINTRESOURCEW(IDD_CONFIG), parent,
+                         DlgProc, 0);
 }

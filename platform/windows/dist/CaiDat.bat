@@ -39,6 +39,11 @@ echo   2. Them ngon ngu "Tieng Viet" neu chua co
 echo   3. Trong tuy chon ban phim cua Tieng Viet se thay "HodionKey"
 echo   4. Chuyen ban phim bang Win+Space, bat/tat tieng Viet bang Ctrl+Space
 echo.
-echo Chinh tuy chon: chay x64\HodionKeyConfig.exe
+echo   5. Chay x64\HodionKeyConfig.exe de co icon o khay he thong
+echo      (bam trai de bat/tat tieng Viet, chuot phai de mo menu).
+echo.
+echo LUU Y: DUNG chay HodionKeyConfig.exe bang quyen Administrator.
+echo Chay thuong thoi - neu khong cac ung dung dang go se khong noi
+echo chuyen duoc voi no.
 echo.
 pause

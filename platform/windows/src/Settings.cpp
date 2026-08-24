@@ -2,6 +2,8 @@
 
 #include <msctf.h>
 
+#include <string>
+
 const WCHAR kHodionSettingsKey[] = L"Software\\HodionKey";
 
 namespace {
@@ -115,6 +117,60 @@ bool SaveHodionVietnameseOn(bool on) {
 }
 
 // ---------------------------------------------------------------------------
+
+namespace {
+
+constexpr WCHAR kRunKey[] =
+    L"Software\\Microsoft\\Windows\\CurrentVersion\\Run";
+constexpr WCHAR kRunValue[] = L"HodionKey";
+
+}  // namespace
+
+bool HodionGetAutoStart() {
+  HKEY key = nullptr;
+  if (RegOpenKeyExW(HKEY_CURRENT_USER, kRunKey, 0, KEY_QUERY_VALUE, &key) !=
+      ERROR_SUCCESS) {
+    return false;
+  }
+  const bool present =
+      RegQueryValueExW(key, kRunValue, nullptr, nullptr, nullptr, nullptr) ==
+      ERROR_SUCCESS;
+  RegCloseKey(key);
+  return present;
+}
+
+bool HodionSetAutoStart(bool on) {
+  HKEY key = nullptr;
+  if (RegCreateKeyExW(HKEY_CURRENT_USER, kRunKey, 0, nullptr,
+                      REG_OPTION_NON_VOLATILE, KEY_SET_VALUE, nullptr, &key,
+                      nullptr) != ERROR_SUCCESS) {
+    return false;
+  }
+
+  bool ok;
+  if (!on) {
+    const LSTATUS st = RegDeleteValueW(key, kRunValue);
+    ok = st == ERROR_SUCCESS || st == ERROR_FILE_NOT_FOUND;
+  } else {
+    WCHAR path[MAX_PATH] = {};
+    const DWORD len = GetModuleFileNameW(nullptr, path, ARRAYSIZE(path));
+    if (len == 0 || len >= ARRAYSIZE(path)) {
+      RegCloseKey(key);
+      return false;
+    }
+    // Ngoặc kép vì đường dẫn hầu như luôn có dấu cách (Program Files).
+    std::wstring command = L"\"";
+    command += path;
+    command += L"\" --tray";
+    ok = RegSetValueExW(
+             key, kRunValue, 0, REG_SZ,
+             reinterpret_cast<const BYTE*>(command.c_str()),
+             static_cast<DWORD>((command.size() + 1) * sizeof(WCHAR))) ==
+         ERROR_SUCCESS;
+  }
+  RegCloseKey(key);
+  return ok;
+}
 
 bool SettingsWatcher::start() {
   stop();

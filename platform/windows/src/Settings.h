@@ -49,6 +49,11 @@ bool SaveHodionSettings(const HodionSettings& s);
 // Chỉ ghi trạng thái bật/tắt (dùng khi người dùng bấm phím chuyển).
 bool SaveHodionVietnameseOn(bool on);
 
+// Khởi động cùng Windows: mục trong HKCU\...\CurrentVersion\Run, trỏ tới
+// chính exe host kèm --tray để nó nằm im ở khay thay vì mở hộp thoại.
+bool HodionGetAutoStart();
+bool HodionSetAutoStart(bool on);
+
 // Theo dõi thay đổi cấu hình mà không cần đọc registry mỗi lần gõ phím.
 class SettingsWatcher {
  public:
@@ -58,6 +63,11 @@ class SettingsWatcher {
   // true nếu có thay đổi kể từ lần gọi trước (tự đăng ký lại lượt theo dõi).
   bool poll();
   void stop();
+
+  // Sự kiện báo registry đổi, để vòng lặp thông điệp chờ chung với thông
+  // điệp cửa sổ (MsgWaitForMultipleObjects) thay vì hỏi theo nhịp. Không
+  // được đóng handle này.
+  HANDLE event() const { return event_; }
 
  private:
   bool arm();

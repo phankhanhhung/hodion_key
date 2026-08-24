@@ -40,7 +40,9 @@ endif()
 
 # App cấu hình — hộp thoại Win32 thuần, đọc/ghi cùng khoá registry.
 set(hodionkey_config_sources
-  config/ConfigApp.cpp
+  config/Host.cpp
+  config/TrayIcon.cpp
+  config/ConfigDialog.cpp
   config/ConfigApp.rc
   src/Settings.cpp
 )
@@ -64,6 +66,7 @@ target_link_libraries(hodionkey_config PRIVATE
   comctl32
   advapi32
   user32
+  shell32
 )
 
 target_compile_definitions(hodionkey_config PRIVATE UNICODE _UNICODE)

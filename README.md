@@ -34,7 +34,7 @@ với **engine gõ tách rời hoàn toàn** để port sang macOS/Linux.
 engine/                   Lõi bộ gõ — C++17 thuần, không phụ thuộc OS + C ABI
 wordlist/                 Từ điển tiếng Anh — tầng riêng, tùy chọn, portable
 platform/windows/src      TSF text service (COM DLL, không ATL/WRL)
-platform/windows/config   App cấu hình (hộp thoại Win32 thuần)
+platform/windows/config   Tiến trình nền: khay hệ thống + hộp thoại cấu hình
 platform/windows/tests    Kiểm thử tầng Windows (registry, watcher)
 platform/windows/dist     Script cài/gỡ + hướng dẫn cho gói phát hành
 docs/                     Kiến trúc, bộ luật UniKey, mutation testing, lộ trình
@@ -212,11 +212,35 @@ cho chính engine gõ lại chuỗi chữ cái gốc với mọi tổ hợp phí
 không phải duyệt bảng vần (duyệt bảng sẽ đẻ ra "gía", "quýen", "dưong" —
 những chữ bộ gõ không bao giờ sinh ra).
 
+## Tiến trình nền và khay hệ thống
+
+`HodionKeyConfig.exe` là **tiến trình thường trú** của bộ gõ, không phải một
+hộp thoại chạy rồi thoát. Nó giữ icon trạng thái ở khay hệ thống:
+
+- **V đỏ** — đang gõ tiếng Việt, **E xám** — đang tắt. Hai trạng thái khác
+  nhau ở *chữ* chứ không chỉ ở màu, để phân biệt được cả ở 16×16 lẫn khi
+  mù màu.
+- **Bấm trái** bật/tắt tiếng Việt, **chuột phải** mở menu (kiểu gõ, cấu
+  hình, khởi động cùng Windows, thoát), **bấm đúp** mở hộp thoại cấu hình.
+- Icon bám theo phím `Ctrl + Space` bấm trong ứng dụng khác — trạng thái
+  đi qua registry nên hai bên luôn khớp.
+
+Nó cũng là chỗ dành cho **phần logic nặng** sau này (đoán dấu cho chữ không
+dấu): mô hình 20–50 MB không thể nạp vào từng ứng dụng đang gõ, nên nó nằm
+ở một tiến trình duy nhất và DLL hỏi sang qua named pipe.
+
+Quan hệ phụ thuộc chỉ có một chiều: **gõ không cần tiến trình này**. Nó
+tắt, chưa chạy hay treo thì bộ gõ vẫn gõ y như cũ, không chậm một mili giây
+nào.
+
+Đừng chạy nó bằng quyền Administrator: khi đó nó ở integrity level cao hơn
+các ứng dụng thường và chúng sẽ không nói chuyện được với nó.
+
 ## Cấu hình
 
-Chạy **`HodionKeyConfig.exe`** để chỉnh bằng hộp thoại. Bấm OK là các ứng
-dụng đang gõ nhận cấu hình mới ngay (text service theo dõi registry), không
-phải khởi động lại gì cả.
+Chuột phải icon khay → **Cấu hình…** (hoặc chạy `HodionKeyConfig.exe`). Bấm
+OK là các ứng dụng đang gõ nhận cấu hình mới ngay (text service theo dõi
+registry), không phải khởi động lại gì cả.
 
 Tùy chọn nằm ở registry `HKCU\Software\HodionKey` (DWORD) nếu muốn sửa tay
 hoặc triển khai theo chính sách. Mặc định trùng với mặc định của UniKey:
@@ -250,7 +274,7 @@ phím đó khi gõ, nên giá trị hỏng sẽ tự quay về mặc định.
 - [x] Reconversion — sửa từ đã chốt không phải gõ lại
 - [ ] Port macOS (IMKit) và Linux (fcitx5) trên cùng engine
 - [ ] Gõ tắt (macro) người dùng định nghĩa, VIQR
-- [ ] Chỉ báo trạng thái trên thanh ngôn ngữ / khay hệ thống
+- [x] Icon trạng thái + menu ở khay hệ thống, khởi động cùng Windows
 
 Thiết kế và lý do của các mục chưa làm — kể cả những thứ **quyết định
 không làm** (picker trong luồng gõ, tự sửa chính tả theo từ điển) — ở

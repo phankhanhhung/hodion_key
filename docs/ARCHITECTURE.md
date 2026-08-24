@@ -225,6 +225,47 @@ kể cả ứng dụng UWP và màn hình khóa.
 `TsfCompat.h` bù vài định nghĩa thiếu trong header MinGW để có thể
 cross-compile/CI từ Linux; trên MSVC các guard tự vô hiệu.
 
+## Tiến trình nền (`platform/windows/config/`)
+
+`HodionKeyConfig.exe` không còn là hộp thoại chạy rồi thoát; nó là tiến
+trình thường trú của bộ gõ. Lý do kiến trúc: DLL text service được nạp vào
+**từng ứng dụng đang gõ**, nên nó phải nhẹ và không được giữ thứ gì to. Mô
+hình đoán dấu 20–50 MB mà nạp vào 30 tiến trình là không chấp nhận được.
+Nên mọi thứ nặng sống ở một tiến trình duy nhất cho cả phiên đăng nhập, và
+DLL hỏi sang.
+
+Chiều phụ thuộc chỉ có một: **gõ không cần host**. Host tắt, chưa chạy hay
+treo thì bộ gõ vẫn chạy y như cũ. Host chỉ thêm những thứ không có cũng
+không sao.
+
+| File | Việc |
+|---|---|
+| `Host.cpp` | vòng đời tiến trình, cửa sổ ẩn, menu, single instance |
+| `TrayIcon.cpp` | icon khay hệ thống |
+| `ConfigDialog.cpp` | hộp thoại cấu hình (trước đây là cả chương trình) |
+
+Vài chỗ dễ sai đã xử lý:
+
+- **Cửa sổ ẩn phải là cửa sổ cấp cao nhất thật, không phải `HWND_MESSAGE`.**
+  Cửa sổ message-only không nhận message quảng bá, mà ta cần đúng hai cái
+  đó: `TaskbarCreated` (Explorer khởi động lại thì mọi icon khay bị xoá
+  sạch, phải thêm lại) và message đánh thức của phiên bản thứ hai.
+- **`TrackPopupMenu` cần `SetForegroundWindow` trước** và một message rỗng
+  sau, nếu không menu không tự đóng khi bấm ra ngoài.
+- **Icon khay phải nạp đúng cỡ `SM_CXSMICON`** (đổi theo DPI), không phải cỡ
+  mặc định, nếu không Windows tự co giãn và nhòe. Đổi DPI thì dựng lại icon.
+- **Trạng thái Việt/Anh đi qua registry**, nên phím `Ctrl + Space` bấm trong
+  ứng dụng khác cũng đổi icon khay. Vòng lặp thông điệp chờ chung sự kiện
+  `RegNotifyChangeKeyValue` (`MsgWaitForMultipleObjects`) thay vì hỏi
+  registry theo nhịp.
+- **Icon vẽ riêng từng cỡ** (`tools/make_icons.py`, file `.ico` ghép tay).
+  `convert ... out.ico` thu nhỏ tất cả từ frame lớn nhất, làm nét chéo chữ V
+  nhòe hẳn ở 16×16 — đúng cỡ khay hệ thống hay dùng nhất. Hai trạng thái
+  khác nhau ở **chữ** (V/E) chứ không chỉ ở màu.
+- **Không chạy bằng quyền Administrator.** Khi đó nó ở integrity level cao
+  hơn ứng dụng thường và named pipe của nó sẽ không nhận được kết nối từ
+  chúng. Script cài đặt vì thế không tự chạy nó.
+
 ## Từ điển tiếng Anh (`wordlist/`)
 
 Tầng **riêng, tùy chọn**: lõi engine không chứa dữ liệu nào và vẫn build,

@@ -189,6 +189,22 @@ int main() {
           "đường nằm trong phương án của duong");
   }
 
+  // --- Khởi động cùng Windows ---
+  {
+    const bool had = HodionGetAutoStart();
+
+    Check(HodionSetAutoStart(true), "bật khởi động cùng Windows");
+    Check(HodionGetAutoStart(), "bật rồi thì đọc lại thấy có");
+    Check(HodionSetAutoStart(true), "bật hai lần không lỗi");
+
+    Check(HodionSetAutoStart(false), "tắt khởi động cùng Windows");
+    Check(!HodionGetAutoStart(), "tắt rồi thì đọc lại thấy không");
+    // Xoá một mục không tồn tại không được coi là lỗi.
+    Check(HodionSetAutoStart(false), "tắt hai lần không lỗi");
+
+    HodionSetAutoStart(had);  // trả lại như cũ
+  }
+
   SaveHodionSettings(original);  // trả lại cấu hình của người dùng
 
   std::printf(g_failures == 0 ? "settings_test: OK\n"

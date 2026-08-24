@@ -2,6 +2,10 @@
 
 #define IDD_CONFIG            100
 
+#define IDI_APP               200
+#define IDI_TRAY_VI           201
+#define IDI_TRAY_EN           202
+
 #define IDC_GRP_METHOD        1000
 #define IDC_METHOD_TELEX      1001
 #define IDC_METHOD_VNI        1002

@@ -15,6 +15,12 @@
 1 RT_MANIFEST "HodionKeyConfig.manifest"
 #endif
 
+// Icon: xem tools/make_icons.py. Trạng thái Việt/Anh khác nhau ở CHỮ (V/E)
+// chứ không chỉ ở màu, để phân biệt được cả ở 16x16 lẫn khi mù màu.
+IDI_APP     ICON "icons/hodionkey.ico"
+IDI_TRAY_VI ICON "icons/hodionkey-vi.ico"
+IDI_TRAY_EN ICON "icons/hodionkey-en.ico"
+
 IDD_CONFIG DIALOGEX 0, 0, 296, 312
 STYLE DS_SETFONT | DS_MODALFRAME | DS_CENTER | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "HodionKey"
