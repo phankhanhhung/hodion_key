@@ -17,9 +17,10 @@ với **engine gõ tách rời hoàn toàn** để port sang macOS/Linux.
 - **Phím chuyển Việt/Anh** (mặc định `Ctrl + Space`) và **app cấu hình** —
   đổi tùy chọn là có hiệu lực ngay, không phải khởi động lại ứng dụng đang gõ.
 - **Gõ trộn Việt – Anh**: tự tắt ở ô mà ứng dụng khai là địa chỉ web, email,
-  mật khẩu hay ô số (hỏi qua `ITfInputScope`, không đoán mò); và
-  `Ctrl + Backspace` khi đang gõ dở để bỏ dấu cho **riêng từ đó**
-  (`te` → `Ctrl+Backspace` → gõ tiếp `st` ra `test` thay vì `tét`).
+  mật khẩu hay ô số (hỏi qua `ITfInputScope`, không đoán mò); từ điển
+  17.467 từ tiếng Anh trả lại nguyên chữ lúc chốt từ (`meeting`, `server`
+  thay vì `mêting`, `sẻver`); và `Ctrl + Backspace` khi đang gõ dở để bỏ
+  dấu cho **riêng từ đó**.
 - Composition chuẩn TSF: đoạn đang gõ gạch chân, Backspace xóa một ký tự
   (dấu thanh tự lùi đúng chỗ), Esc trả lại chuỗi phím thô, Enter/Tab/chuột
   chốt từ tự nhiên.
@@ -28,6 +29,7 @@ với **engine gõ tách rời hoàn toàn** để port sang macOS/Linux.
 
 ```
 engine/                   Lõi bộ gõ — C++17 thuần, không phụ thuộc OS + C ABI
+wordlist/                 Từ điển tiếng Anh — tầng riêng, tùy chọn, portable
 platform/windows/src      TSF text service (COM DLL, không ATL/WRL)
 platform/windows/config   App cấu hình (hộp thoại Win32 thuần)
 platform/windows/tests    Kiểm thử tầng Windows (registry, watcher)
@@ -73,10 +75,14 @@ gcovr --root . --filter 'engine/src/' --txt --branches   # độ phủ
 Thử engine ngay trên terminal:
 
 ```sh
-echo "xin chaof thees giowis" | ./build/engine/hodion_demo
+echo "xin chaof thees giowis" | ./build/hodion_demo
 # → xin chào thế giới
-echo "vie6t5 nam" | ./build/engine/hodion_demo --vni
+echo "vie6t5 nam" | ./build/hodion_demo --vni
 # → việt nam
+echo "hopj meeting vowis server" | ./build/hodion_demo
+# → họp meeting với server        (từ điển tiếng Anh, mặc định bật)
+echo "hopj meeting vowis server" | ./build/hodion_demo --no-english
+# → họp mêting với sẻver
 ```
 
 ### DLL Windows (Visual Studio 2019+)
@@ -146,6 +152,19 @@ vừa là ô tìm kiếm) thì vẫn gõ tiếng Việt được — chặn nh�
 gõ tiếng Việt tệ hơn là bỏ sót một ô URL. Tắt cơ chế này trong app cấu hình
 nếu không thích.
 
+**Từ điển tiếng Anh.** Lúc chốt từ, nếu chuỗi phím vừa gõ là một từ tiếng
+Anh đã biết thì HodionKey trả lại nguyên chuỗi đó: `meeting` chứ không phải
+`mêting`, `server` chứ không phải `sẻver`. Bảng có 17.467 từ và **đã loại
+sạch những từ ghép ra một âm tiết tiếng Việt thật** — `bans`→bán,
+`cans`→cán, `bust`→bút, `bits`→bít, `test`→tét. Ở những từ đó không có bằng
+chứng nào phân xử được người dùng muốn gì, nên bộ gõ giữ nguyên chữ tiếng
+Việt; muốn từ tiếng Anh thì bấm `Ctrl + Backspace`. Nhờ luật đó, từ điển
+**không bao giờ ghi đè lên một âm tiết tiếng Việt hợp lệ** — tính chất này
+được kiểm lại trên từng từ mỗi lần chạy test.
+
+VNI không cần tính năng này: phím dấu của VNI là chữ số nên không từ tiếng
+Anh nào bị biến dạng (đo trên cả 63.072 từ: đúng 0 từ).
+
 **`Ctrl + Backspace` khi đang gõ dở** bỏ dấu cho riêng từ đang gõ: chữ quay
 về đúng chuỗi phím đã bấm, và phần còn lại của từ được gõ thẳng — không
 phím nào là phím dấu nữa.
@@ -187,6 +206,7 @@ hoặc triển khai theo chính sách. Mặc định trùng với mặc định 
 | `RestoreNonVn`  | `0`      | Tự trả lại phím thô với từ không phải tiếng Việt |
 | `WShorthand`    | `1`      | Telex: `w` không áp được móc thì thành `ư`       |
 | `TelexBrackets` | `1`      | Telex đầy đủ: `[ ] { }` → `ơ ư Ơ Ư`              |
+| `EnglishDetect` | `1`      | Trả lại nguyên chữ với từ tiếng Anh đã biết      |
 | `VietnameseOn`  | `1`      | Đang bật gõ tiếng Việt (phím chuyển ghi vào đây) |
 | `SkipInputScopes` | `1`    | Tự tắt ở ô URL / email / mật khẩu / ô số        |
 | `ToggleKey`     | `0x20`   | Virtual-key của phím chuyển (`0x20` = Space)     |
@@ -201,7 +221,7 @@ phím đó khi gõ, nên giá trị hỏng sẽ tự quay về mặc định.
       khôi phục từ không phải tiếng Việt, `[ ]`, họ vần uo…)
 - [x] Phím chuyển Việt/Anh + app cấu hình (áp dụng tức thì)
 - [x] Gõ trộn Việt–Anh: tự tắt theo input scope + phím bỏ dấu cho một từ
-- [ ] Gõ trộn Việt–Anh: từ điển Anh quyết định lúc chốt từ
+- [x] Gõ trộn Việt–Anh: từ điển Anh quyết định lúc chốt từ
 - [ ] Tự thêm dấu cho chữ không dấu (n-gram + Viterbi, tiến trình riêng)
 - [ ] Reconversion — sửa từ đã chốt không phải gõ lại
 - [ ] Port macOS (IMKit) và Linux (fcitx5) trên cùng engine

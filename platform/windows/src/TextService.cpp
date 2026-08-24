@@ -3,6 +3,7 @@
 #include <cwchar>
 
 #include "EditSession.h"
+#include "hodion/english_words.h"
 #include "hodion/utf.h"
 
 namespace {
@@ -70,6 +71,10 @@ STDMETHODIMP CTextService::ActivateEx(ITfThreadMgr* ptim, TfClientId tid,
 
   threadMgr_.copy_from(ptim);
   clientId_ = tid;
+
+  // Từ điển tiếng Anh: chỉ được tra lúc chốt từ, không nằm trên đường gõ
+  // từng phím. Bảng là dữ liệu tĩnh nên sống suốt đời tiến trình.
+  engine_.set_foreign_words(&hodion::english_words());
 
   ApplySettings(LoadHodionSettings());
   watcher_.start();
@@ -302,14 +307,26 @@ HRESULT CTextService::EndCompositionKeepText(TfEditCookie ec) {
 }
 
 void CTextService::FinalizeComposition() {
-  engine_.reset();
-  if (!composition_ || !compositionContext_) return;
+  // Chuỗi chốt có thể KHÁC chữ đang hiển thị: engine khôi phục chuỗi phím
+  // thô khi từ đó là một từ tiếng Anh đã biết ("mêting" → "meeting") hoặc
+  // không phải tiếng Việt hợp lệ. Vì vậy phải hỏi engine chứ không giữ
+  // nguyên những gì đang hiện — nếu không, chốt bằng Enter/Tab/mũi tên sẽ
+  // bỏ lỡ việc khôi phục mà chốt bằng dấu cách vẫn làm.
+  const std::wstring text = HodionToWide(engine_.commit());
+  if (!composition_ || !compositionContext_) {
+    composition_.reset();
+    compositionContext_.reset();
+    return;
+  }
 
   // Giữ compositionContext_ sống qua edit session (reset bên trong callback).
   com_ptr<ITfContext> ctx;
   ctx.copy_from(compositionContext_.get());
-  RequestSyncEdit(ctx.get(),
-                  [this](TfEditCookie ec) { return EndCompositionKeepText(ec); });
+  RequestSyncEdit(ctx.get(), [&](TfEditCookie ec) {
+    HRESULT hr = text.empty() ? S_OK : SetCompositionText(ec, text);
+    if (SUCCEEDED(hr)) hr = EndCompositionKeepText(ec);
+    return hr;
+  });
   // Nếu edit session thất bại (ứng dụng đã biến mất…) thì buông tham chiếu.
   composition_.reset();
   compositionContext_.reset();

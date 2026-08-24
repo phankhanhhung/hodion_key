@@ -19,7 +19,8 @@
 
 #define IDC_GRP_MIXED         1026
 #define IDC_OPT_INPUTSCOPE    1027
-#define IDC_LBL_MIXEDHINT     1028
+#define IDC_OPT_ENGLISH       1028
+#define IDC_LBL_MIXEDHINT     1029
 
 #define IDC_GRP_TOGGLE        1030
 #define IDC_LBL_TOGGLE        1031

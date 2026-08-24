@@ -19,6 +19,7 @@ set_target_properties(hodionkey_tsf PROPERTIES
 
 target_link_libraries(hodionkey_tsf PRIVATE
   hodion_engine
+  hodion_words
   ole32
   oleaut32
   uuid

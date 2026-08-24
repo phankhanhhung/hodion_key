@@ -105,6 +105,7 @@ Ev classify(char32_t ch, const Config& cfg) {
 
 struct Engine::Impl {
   Config cfg{};
+  const ForeignWords* foreign = nullptr;
   Word word;
   std::vector<char32_t> keys;   // phím thô của từ hiện tại
   bool any_converted = false;   // có phím nào gây biến đổi chưa
@@ -129,14 +130,46 @@ struct Engine::Impl {
     lit.clear();
   }
 
-  // Chuỗi chốt từ: khôi phục phím thô nếu bật tùy chọn và từ không phải
-  // tiếng Việt hợp lệ (mirror hành vi autoNonVnRestore của UniKey).
+  std::u32string raw_keys() const {
+    return std::u32string(keys.begin(), keys.end());
+  }
+
+  // Chuỗi phím thô có dạng một từ chữ cái thuần (a–z, đủ dài) không? Từ
+  // ngắn không được xét: "as", "is", "or" vừa là từ tiếng Anh vừa là chuỗi
+  // gõ hợp lệ của á/í/ỏ, tra từ điển ở đó hại nhiều hơn lợi.
+  static constexpr size_t kMinForeignLen = 4;
+  bool keys_look_like_word() const {
+    if (keys.size() < kMinForeignLen) return false;
+    for (char32_t c : keys) {
+      const char32_t lc = ascii_lower(c);
+      if (lc < U'a' || lc > U'z') return false;
+    }
+    return true;
+  }
+
+  bool foreign_match() const {
+    if (!cfg.english_detect || !foreign || !keys_look_like_word()) return false;
+    std::u32string lower;
+    lower.reserve(keys.size());
+    for (char32_t c : keys) lower.push_back(ascii_lower(c));
+    return foreign->contains(lower);
+  }
+
+  // Chuỗi chốt từ. Hai lý do trả lại phím thô, độc lập nhau:
+  //   1. Từ điển ngoại lai nhận ra đây là một từ tiếng Anh (test → "test").
+  //      Đây là bằng chứng DUY NHẤT có được khi chữ ghép ra vẫn là âm tiết
+  //      tiếng Việt hợp lệ ("tét"), nên nó bắt được ca mà luật cấu trúc
+  //      không thấy gì sai.
+  //   2. Từ ghép ra không phải âm tiết tiếng Việt hợp lệ (autoNonVnRestore
+  //      của UniKey) — luật thuần cấu trúc, không cần dữ liệu.
   std::u32string commit_text() const {
     if (literal) return lit;
-    if (cfg.restore_non_vn && cfg.spell_check && !word.single_mode() &&
-        keys_valid && any_converted && word.is_non_vn(cfg) &&
+    const bool restorable = cfg.spell_check && !word.single_mode() &&
+                            keys_valid && any_converted;
+    if (restorable && foreign_match()) return raw_keys();
+    if (restorable && cfg.restore_non_vn && word.is_non_vn(cfg) &&
         word.has_vn_mark()) {
-      return std::u32string(keys.begin(), keys.end());
+      return raw_keys();
     }
     return word.render();
   }
@@ -163,8 +196,18 @@ bool Engine::starts_word(char32_t ch) const {
   return false;
 }
 
+void Engine::set_foreign_words(const ForeignWords* words) {
+  impl_->foreign = words;
+}
+
 bool Engine::composing() const {
   return impl_->literal || !impl_->word.empty();
+}
+
+bool Engine::composing_is_vietnamese() const {
+  const Impl& im = *impl_;
+  if (im.literal || im.word.empty()) return false;
+  return !im.word.is_non_vn(im.cfg);
 }
 
 bool Engine::literal() const { return impl_->literal; }
@@ -319,10 +362,16 @@ Engine::Result Engine::process_backspace() {
   Impl& im = *impl_;
 
   if (im.literal) {
-    if (im.lit.empty()) {  // không xảy ra khi bất biến còn đúng
+    // MUTATION-SKIP-BEGIN
+    // Chốt chặn: literal == true luôn kéo theo lit không rỗng (xem
+    // self_check), nên nhánh này không chạy được. Vẫn giữ vì cái giá của
+    // việc bất biến vỡ ở đây là pop_back() trên chuỗi rỗng — hành vi không
+    // xác định, kiểu hỏng tệ nhất có thể.
+    if (im.lit.empty()) {
       im.literal = false;
       return Result{};
     }
+    // MUTATION-SKIP-END
     im.lit.pop_back();
     // Xóa hết thì thoát chế độ gõ thẳng — từ kế tiếp gõ tiếng Việt lại, và
     // nhật ký phím dùng được trở lại (nếu không, Esc của từ sau chỉ trả về

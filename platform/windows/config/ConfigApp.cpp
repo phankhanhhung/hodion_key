@@ -41,6 +41,8 @@ const Labels kLabels[] = {
     {IDC_GRP_MIXED, L"Gõ trộn Việt – Anh"},
     {IDC_OPT_INPUTSCOPE,
      L"Tự tắt ở ô địa chỉ web, email, mật khẩu, ô số"},
+    {IDC_OPT_ENGLISH,
+     L"Trả lại nguyên chữ với từ tiếng Anh đã biết (meeting)"},
     {IDC_LBL_MIXEDHINT,
      L"Ctrl + Backspace khi đang gõ dở: bỏ dấu cho riêng từ đó."},
     {IDC_GRP_TOGGLE, L"Chuyển Việt / Anh"},
@@ -130,6 +132,9 @@ void UpdateEnabledState(HWND dlg) {
   const bool telex = Checked(dlg, IDC_METHOD_TELEX);
   EnableWindow(GetDlgItem(dlg, IDC_OPT_WSHORTHAND), telex);
   EnableWindow(GetDlgItem(dlg, IDC_OPT_BRACKETS), telex);
+  // VNI dùng chữ số làm phím dấu nên không từ tiếng Anh nào bị biến dạng —
+  // từ điển hoàn toàn vô tác dụng ở đó.
+  EnableWindow(GetDlgItem(dlg, IDC_OPT_ENGLISH), telex);
 
   const ToggleKey key = SelectedToggleKey(dlg, ToggleKey{});
   std::wstring hint = Checked(dlg, IDC_CHK_VIETNAMESE)
@@ -154,6 +159,7 @@ void LoadIntoDialog(HWND dlg, const HodionSettings& s) {
   Check(dlg, IDC_OPT_RESTORE, s.engine.restore_non_vn);
   Check(dlg, IDC_OPT_WSHORTHAND, s.engine.w_shorthand);
   Check(dlg, IDC_OPT_BRACKETS, s.engine.telex_brackets);
+  Check(dlg, IDC_OPT_ENGLISH, s.engine.english_detect);
   Check(dlg, IDC_OPT_INPUTSCOPE, s.skip_input_scopes);
   Check(dlg, IDC_CHK_VIETNAMESE, s.vietnamese_on);
 
@@ -173,6 +179,7 @@ HodionSettings ReadFromDialog(HWND dlg, const ToggleKey& fallback) {
   s.engine.restore_non_vn = Checked(dlg, IDC_OPT_RESTORE);
   s.engine.w_shorthand = Checked(dlg, IDC_OPT_WSHORTHAND);
   s.engine.telex_brackets = Checked(dlg, IDC_OPT_BRACKETS);
+  s.engine.english_detect = Checked(dlg, IDC_OPT_ENGLISH);
   s.skip_input_scopes = Checked(dlg, IDC_OPT_INPUTSCOPE);
   s.vietnamese_on = Checked(dlg, IDC_CHK_VIETNAMESE);
   s.toggle = SelectedToggleKey(dlg, fallback);

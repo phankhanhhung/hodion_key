@@ -5,14 +5,17 @@ Build:  @BUILD@
 
 ⚠ ĐỌC KỸ TRƯỚC KHI CÀI
 ----------------------
-Đây là BẢN THỬ, chưa từng chạy trên Windows thật. Tầng TSF mới chỉ được
-kiểm chứng ở mức biên dịch; engine gõ thì đã test rất kỹ (157.123 lượt
-kiểm tra, fuzz 37,7 triệu lượt, sanitizer sạch) nhưng phần ghép vào
-Windows thì chưa ai chạy thử.
+Đây vẫn là BẢN THỬ. Tầng TSF đã được chạy thử trên Windows thật và gõ
+được, nhưng mới là một lần thử — chưa đi qua nhiều ứng dụng khác nhau.
+Engine gõ thì đã test rất kỹ (156.105 lượt kiểm tra, fuzz hàng chục
+triệu lượt, sanitizer sạch, mutation testing).
 
-Rủi ro thực tế: bộ gõ có thể không hiện ra trong danh sách bàn phím, gõ
-sai trong vài ứng dụng, hoặc làm ứng dụng đang gõ bị treo. Nên thử trên
-máy phụ hoặc máy ảo trước. File chưa ký số nên Windows sẽ cảnh báo.
+Chưa kiểm chứng: bản 32-bit (chưa ai chạy thử ở đâu), và hành vi trong
+các ứng dụng gõ khó tính (Electron, Java, remote desktop, game).
+
+Rủi ro thực tế: gõ sai trong vài ứng dụng, hoặc làm ứng dụng đang gõ bị
+treo. Nên thử trên máy phụ hoặc máy ảo trước. File chưa ký số nên
+Windows sẽ cảnh báo.
 
 CÁCH CÀI
 --------
@@ -26,13 +29,32 @@ CÁCH CÀI
 
 CÁCH DÙNG
 ---------
-- Ctrl+Space : bật/tắt gõ tiếng Việt (không cần đổi bàn phím)
-- Esc        : trả lại đúng chuỗi phím vừa gõ (huỷ biến đổi)
-- Cấu hình   : chạy x64\HodionKeyConfig.exe
+- Ctrl+Space     : bật/tắt gõ tiếng Việt (không cần đổi bàn phím)
+- Esc            : trả lại đúng chuỗi phím vừa gõ (huỷ biến đổi)
+- Ctrl+Backspace : đang gõ dở thì bỏ dấu cho RIÊNG từ đó, gõ tiếp bình
+                   thường (dành cho từ tiếng Anh lọt giữa câu)
+- Cấu hình       : chạy x64\HodionKeyConfig.exe
 
 Thử nhanh: gõ  vieejt nam  →  việt nam
            gõ  dduongwf    →  đường
            gõ  thuowr      →  thuở
+
+GÕ TRỘN VIỆT - ANH
+------------------
+- Ô địa chỉ web, ô email, ô mật khẩu, ô số: tự tắt tiếng Việt (bộ gõ hỏi
+  thẳng ứng dụng kiểu ô, không đoán).
+- Từ tiếng Anh đã biết được trả lại nguyên chữ lúc chốt từ:
+  gõ  meeting  →  meeting   (không có tính năng này thì ra "mêting")
+- Những từ mà chuỗi phím trùng đúng một chữ tiếng Việt thật thì bộ gõ
+  KHÔNG tự quyết, vì không có cách nào biết bạn muốn gì:
+  gõ  bans → bán,  cans → cán,  bust → bút,  test → tét
+  Muốn ra từ tiếng Anh thì bấm Ctrl+Backspace giữa chừng.
+- Tắt được từng thứ trong app cấu hình.
+
+GIẤY PHÉP TỪ ĐIỂN
+-----------------
+Bảng từ tiếng Anh lấy từ SCOWL của Kevin Atkinson; thông báo bản quyền
+bắt buộc nằm ở GIAY-PHEP-TU-DIEN.txt trong gói này.
 
 GỠ CÀI
 ------
@@ -44,8 +66,8 @@ IME 64-bit chỉ nạp được vào tiến trình 64-bit. Muốn gõ được t
 dụng 32-bit (nhiều phần mềm cũ) thì phải đăng ký cả bản 32-bit — script
 cài đặt làm sẵn cả hai.
 
-Cả hai bản đều mới chỉ được biên dịch và chạy qua bộ test của engine,
-chưa từng gõ thật trên Windows.
+Bản x86 mới chỉ được biên dịch và chạy qua bộ test của engine, chưa từng
+gõ thật ở đâu.
 
 BÁO LỖI
 -------

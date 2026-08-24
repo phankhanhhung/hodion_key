@@ -33,8 +33,9 @@ if(MSVC)
 endif()
 add_test(NAME engine_tests COMMAND hodion_engine_tests)
 
-add_executable(hodion_demo tools/demo.cpp)
-target_link_libraries(hodion_demo PRIVATE hodion_engine)
+# Công cụ dev để dựng/kiểm tra từ điển ngoại lai (xem tools/build_wordlist.py).
+add_executable(hodion_wordscan tools/wordscan.cpp)
+target_link_libraries(hodion_wordscan PRIVATE hodion_engine)
 if(MSVC)
-  target_compile_options(hodion_demo PRIVATE /utf-8)
+  target_compile_options(hodion_wordscan PRIVATE /utf-8)
 endif()

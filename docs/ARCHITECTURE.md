@@ -139,6 +139,11 @@ nằm trong nhóm chặn — tên người và địa chỉ Việt Nam rất c�
 Hỏi hỏng (ứng dụng không cho edit session đồng bộ, không khai scope) thì
 mặc định là **vẫn gõ tiếng Việt** — hỏng theo hướng không đổi hành vi cũ.
 
+**Từ điển tiếng Anh** (`wordlist/`, xem mục riêng bên dưới). Lúc chốt từ,
+nếu chuỗi phím thô là một từ tiếng Anh đã biết thì engine trả lại nguyên
+chuỗi đó. Chỉ tra **một lần cho mỗi từ**, ở thời điểm chốt — không nằm trên
+đường gõ từng phím.
+
 **Hủy biến đổi cho một từ** (`Engine::cancel_transform`, gắn vào
 `Ctrl + Backspace`). Engine chuyển sang *chế độ gõ thẳng*: chữ quay về đúng
 chuỗi phím đã bấm và mọi phím còn lại của từ chỉ được nối nguyên văn — `s`,
@@ -184,6 +189,76 @@ kể cả ứng dụng UWP và màn hình khóa.
 
 `TsfCompat.h` bù vài định nghĩa thiếu trong header MinGW để có thể
 cross-compile/CI từ Linux; trên MSVC các guard tự vô hiệu.
+
+## Từ điển tiếng Anh (`wordlist/`)
+
+Tầng **riêng, tùy chọn**: lõi engine không chứa dữ liệu nào và vẫn build,
+chạy, pass test đầy đủ khi không có thư viện này. Engine chỉ khai một giao
+diện để hỏi:
+
+```cpp
+class ForeignWords {
+ public:
+  virtual bool contains(const std::u32string& key) const = 0;
+};
+void Engine::set_foreign_words(const ForeignWords*);
+```
+
+Nhờ vậy chiều phụ thuộc luôn là `wordlist → engine`, không bao giờ ngược
+lại, và bản port macOS/Linux tự chọn có nạp hay không.
+
+### Luật chốt từ
+
+Có hai lý do độc lập để trả lại chuỗi phím thô thay vì chữ đã ghép:
+
+1. **Từ điển nhận ra một từ tiếng Anh.** Đây là bằng chứng *duy nhất* có
+   được khi chữ ghép ra vẫn là âm tiết tiếng Việt hợp lệ.
+2. **Chữ ghép ra không phải âm tiết tiếng Việt hợp lệ** (`restore_non_vn`,
+   mirror `autoNonVnRestore` của UniKey) — luật thuần cấu trúc, không cần
+   dữ liệu.
+
+Cả hai chỉ chạy khi nhật ký phím còn tin được (chưa Backspace) và thật sự
+có phím gây biến đổi. Chuỗi chốt vì thế **luôn là một trong hai thứ**: chữ
+đã ghép, hoặc đúng chuỗi phím đã gõ — không bao giờ là thứ ba. Đây là một
+tính chất được test kiểm trực tiếp.
+
+### Bảng dữ liệu và luật lọc
+
+Nguồn: SCOWL (gói `wamerican`), giấy phép cho phép phát hành lại —
+`wordlist/data/SCOWL-COPYRIGHT.txt` phải đi kèm bản phát hành.
+`tools/build_wordlist.py` sinh ra `wordlist/data/english_telex.inc`; kết quả
+được commit nên build bình thường không cần script, không cần mạng.
+
+Từ 63.072 từ tiếng Anh (4–24 ký tự, chỉ a–z):
+
+| Bước                                          | Còn lại |
+|-----------------------------------------------|---------|
+| gõ Telex ra đúng chính nó → bỏ (không có gì để khôi phục) | 18.356 |
+| ghép ra một âm tiết tiếng Việt **hợp lệ** → bỏ | 17.467 |
+
+Luật thứ hai mới là điều quan trọng. 889 từ bị loại gồm `bans`→bán,
+`cans`→cán, `bust`→bút, `bits`→bít, `bốn`, `cáp`, và cả `test`→tét. Ở những
+từ đó không có bằng chứng nào phân xử được người dùng muốn gì — và những
+âm tiết ấy (bán, bút, bít, bốn) phổ biến hơn hẳn. Nên bộ gõ **không được tự
+quyết**: giữ nguyên chữ tiếng Việt, ai muốn từ tiếng Anh thì bấm
+`Ctrl + Backspace`. Đó chính là lý do phím kia tồn tại.
+
+Hệ quả là một tính chất mạnh: **bảng không bao giờ ghi đè lên một âm tiết
+tiếng Việt hợp lệ.** `wordlist/tests` kiểm lại nó trên từng từ ở cả 4 biến
+thể cấu hình Telex (17.467 × 4 lượt) mỗi lần chạy CI — không tin script.
+
+VNI không cần tính năng này: phím dấu của VNI là chữ số nên không từ tiếng
+Anh nào bị biến dạng (đo trên cả 63.072 từ: đúng 0 từ). App cấu hình làm mờ
+tùy chọn khi chọn VNI.
+
+### Cách lưu
+
+Các bản ghi xếp theo độ dài thành từng khối **độ dài cố định, không ký tự
+ngăn cách**, mỗi khối sắp tăng dần. Tra bằng tìm nhị phân thẳng trên mảng:
+không bảng chỉ mục, không con trỏ, không cấp phát, không khởi tạo lúc nạp
+DLL — 149 KB dữ liệu thuần, dùng chung được cho mọi thread. (Một mảng
+`const char*` sẽ tốn thêm 140 KB con trỏ; một blob có `\0` ngăn cách thì
+không tìm nhị phân được.)
 
 ## Kế hoạch port
 

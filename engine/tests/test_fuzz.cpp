@@ -95,6 +95,7 @@ std::string DescribeOps(const std::vector<Op>& ops, const Config& cfg) {
   if (!cfg.free_marking) s += ",!free";
   if (!cfg.spell_check) s += ",!spell";
   if (cfg.restore_non_vn) s += ",restore";
+  if (cfg.english_detect) s += ",en";
   if (!cfg.w_shorthand) s += ",!w";
   if (!cfg.telex_brackets) s += ",!brackets";
   s += "] ";
@@ -122,6 +123,23 @@ struct Reporter {
   }
 };
 
+// Từ điển giả cho fuzz: nhận một nửa số chuỗi (theo hàm băm cố định) để
+// đường khôi phục từ ngoại lai thật sự được chạy, kể cả dưới sanitizer.
+class FuzzWords : public hodion::ForeignWords {
+ public:
+  bool contains(const std::u32string& key) const override {
+    uint32_t h = 2166136261u;
+    for (char32_t c : key) h = (h ^ static_cast<uint32_t>(c)) * 16777619u;
+    // Hợp đồng: engine chỉ được hỏi bằng chữ thường a–z, đủ dài.
+    if (key.size() < 4) hodion_fuzz_bad_query = true;
+    for (char32_t c : key) {
+      if (c < U'a' || c > U'z') hodion_fuzz_bad_query = true;
+    }
+    return (h & 1u) != 0;
+  }
+  mutable bool hodion_fuzz_bad_query = false;
+};
+
 Config RandomConfig(Rng& rng) {
   Config cfg;
   cfg.method = rng.chance(50) ? hodion::InputMethod::Telex
@@ -133,6 +151,7 @@ Config RandomConfig(Rng& rng) {
   cfg.restore_non_vn = rng.chance(40);
   cfg.w_shorthand = rng.chance(85);
   cfg.telex_brackets = rng.chance(85);
+  cfg.english_detect = rng.chance(60);
   return cfg;
 }
 
@@ -228,6 +247,7 @@ char32_t RandomKey(Rng& rng, const Config& cfg) {
 void run_fuzz_tests() {
   Rng rng(0xC0FFEEu);
   Reporter rep;
+  static const FuzzWords words;
   // Thống kê để kiểm chứng fuzzer không sinh toàn rác vô hại.
   long stats_rounds = 0, stats_diacritic_rounds = 0;
 
@@ -235,6 +255,7 @@ void run_fuzz_tests() {
   for (int round = 0; round < rounds; ++round) {
     const Config cfg = RandomConfig(rng);
     Engine e(cfg);
+    if (rng.chance(60)) e.set_foreign_words(&words);
     std::vector<Op> ops;
     std::vector<char32_t> pending;  // phần âm tiết còn lại chưa gõ hết
     bool round_made_diacritic = false;
@@ -380,6 +401,11 @@ void run_fuzz_tests() {
       rep.fail("Backspace thừa phải trả None", ops, cfg);
     }
     ++g_checks;
+  }
+
+  if (words.hodion_fuzz_bad_query) {
+    ++g_failures;
+    std::printf("FUZZ FAIL: engine tra từ điển bằng chuỗi sai hợp đồng\n");
   }
 
   if (std::getenv("HODION_FUZZ_STATS")) {

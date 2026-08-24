@@ -16,6 +16,18 @@
 
 namespace hodion {
 
+// Nguồn tra từ ngoại lai (tiếng Anh) do host cấp.
+//
+// Engine KHÔNG mang theo dữ liệu từ điển: nó chỉ biết hỏi. Nhờ vậy lõi vẫn
+// build và chạy đúng khi không có từ điển nào, và mỗi nền tảng tự chọn
+// cách nạp danh sách của mình.
+class ForeignWords {
+ public:
+  virtual ~ForeignWords() = default;
+  // `key` là chuỗi phím thô của từ, đã hạ về chữ thường, chỉ gồm a–z.
+  virtual bool contains(const std::u32string& key) const = 0;
+};
+
 enum class InputMethod : uint8_t {
   Telex = 0,
   Vni = 1,
@@ -38,6 +50,10 @@ struct Config {
   bool restore_non_vn = false;  // tự khôi phục phím gõ với từ không phải tiếng Việt
   bool w_shorthand = true;      // Telex: w không áp được móc thì thành ư (tw→tư)
   bool telex_brackets = true;   // Telex đầy đủ: [ ] { } → ơ ư Ơ Ư
+  // Lúc chốt từ, nếu chuỗi phím thô là một từ tiếng Anh đã biết thì trả lại
+  // nguyên chuỗi đó (test → "test" chứ không phải "tét"). Chỉ có tác dụng
+  // khi host đã nạp từ điển bằng set_foreign_words().
+  bool english_detect = true;
 };
 
 class Engine {
@@ -61,6 +77,10 @@ class Engine {
   const Config& config() const;
   void set_config(const Config& cfg);  // đổi cấu hình sẽ reset trạng thái gõ dở
 
+  // Nạp từ điển từ ngoại lai. Con trỏ phải sống lâu hơn engine; nullptr để
+  // tắt. Chỉ được tra lúc CHỐT từ, không nằm trên đường gõ từng phím.
+  void set_foreign_words(const ForeignWords* words);
+
   // Phím này có mở một từ mới không (khi chưa compose)?
   // Chữ cái luôn mở từ; [ ] { } mở từ ở Telex đầy đủ (thành ơ/ư).
   bool starts_word(char32_t ch) const;
@@ -82,6 +102,8 @@ class Engine {
   bool literal() const;
 
   bool composing() const;
+  // Từ đang gõ dở có cấu trúc âm tiết tiếng Việt hợp lệ không? (rỗng → false)
+  bool composing_is_vietnamese() const;
   std::u32string composition() const;  // chuỗi hiển thị hiện tại
   // Chuỗi phím thô của từ, dùng cho Esc ("trả lại đúng chữ tao gõ"). Sau khi
   // người dùng bấm Backspace thì không dựng lại được nữa (một ký tự có thể

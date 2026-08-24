@@ -61,6 +61,7 @@ HodionSettings LoadHodionSettings() {
   s.engine.restore_non_vn = ReadDword(key, L"RestoreNonVn", 0) != 0;
   s.engine.w_shorthand = ReadDword(key, L"WShorthand", 1) != 0;
   s.engine.telex_brackets = ReadDword(key, L"TelexBrackets", 1) != 0;
+  s.engine.english_detect = ReadDword(key, L"EnglishDetect", 1) != 0;
 
   s.vietnamese_on = ReadDword(key, L"VietnameseOn", 1) != 0;
   s.skip_input_scopes = ReadDword(key, L"SkipInputScopes", 1) != 0;
@@ -91,6 +92,7 @@ bool SaveHodionSettings(const HodionSettings& s) {
   ok &= WriteDword(key, L"RestoreNonVn", s.engine.restore_non_vn ? 1 : 0);
   ok &= WriteDword(key, L"WShorthand", s.engine.w_shorthand ? 1 : 0);
   ok &= WriteDword(key, L"TelexBrackets", s.engine.telex_brackets ? 1 : 0);
+  ok &= WriteDword(key, L"EnglishDetect", s.engine.english_detect ? 1 : 0);
   ok &= WriteDword(key, L"VietnameseOn", s.vietnamese_on ? 1 : 0);
   ok &= WriteDword(key, L"SkipInputScopes", s.skip_input_scopes ? 1 : 0);
   ok &= WriteDword(key, L"ToggleKey", s.toggle.vk);

@@ -40,7 +40,9 @@ jobs:
           HODION_FUZZ_ROUNDS: 200000
           HODION_FUZZ_STATS: 1
           ASAN_OPTIONS: detect_leaks=1
-        run: ./build-asan/engine/hodion_engine_tests
+        run: |
+          ./build-asan/engine/hodion_engine_tests
+          ./build-asan/wordlist/hodion_wordlist_tests
 
   coverage:
     name: Độ phủ (engine)
@@ -56,12 +58,15 @@ jobs:
             -DCMAKE_EXE_LINKER_FLAGS="--coverage"
           cmake --build build-cov -j
       - name: Chạy test
-        run: ./build-cov/engine/hodion_engine_tests
+        run: |
+          ./build-cov/engine/hodion_engine_tests
+          ./build-cov/wordlist/hodion_wordlist_tests
       - name: Báo cáo (có ngưỡng sàn để không tụt về sau)
         run: |
           gcovr --root . --filter 'engine/src/' --filter 'engine/include/' \
-            --txt --branches
+            --filter 'wordlist/src/' --txt --branches
           gcovr --root . --filter 'engine/src/' --filter 'engine/include/' \
+            --filter 'wordlist/src/' \
             --fail-under-line 97 --fail-under-branch 78
 
   tsf-windows:
@@ -111,6 +116,8 @@ jobs:
           cp platform/windows/dist/CaiDat.bat pkg/
           cp platform/windows/dist/GoCaiDat.bat pkg/
           cp platform/windows/dist/DOC-TRUOC-KHI-CAI.txt pkg/
+          # Giấy phép SCOWL yêu cầu thông báo đi kèm mọi bản phát hành.
+          cp wordlist/data/SCOWL-COPYRIGHT.txt pkg/GIAY-PHEP-TU-DIEN.txt
           sed -i "s|@COMMIT@|${GITHUB_SHA} (${GITHUB_REF_NAME})|" \
             pkg/DOC-TRUOC-KHI-CAI.txt
           sed -i "s|@BUILD@|MSVC, dung CI ngay $(date -u +%Y-%m-%d)|" \
@@ -120,6 +127,7 @@ jobs:
           test -f pkg/x64/HodionKey.dll
           test -f pkg/x86/HodionKey.dll
           test -f pkg/CaiDat.bat
+          test -f pkg/GIAY-PHEP-TU-DIEN.txt
       - name: Tải lên gói cài đặt
         uses: actions/upload-artifact@v4
         with:

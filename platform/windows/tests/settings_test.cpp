@@ -26,7 +26,8 @@ bool SameEngine(const hodion::Config& a, const hodion::Config& b) {
          a.free_marking == b.free_marking && a.spell_check == b.spell_check &&
          a.restore_non_vn == b.restore_non_vn &&
          a.w_shorthand == b.w_shorthand &&
-         a.telex_brackets == b.telex_brackets;
+         a.telex_brackets == b.telex_brackets &&
+         a.english_detect == b.english_detect;
 }
 
 }  // namespace
@@ -43,6 +44,7 @@ int main() {
   s.engine.restore_non_vn = true;
   s.engine.w_shorthand = false;
   s.engine.telex_brackets = false;
+  s.engine.english_detect = false;
   s.vietnamese_on = false;
   s.skip_input_scopes = false;
   s.toggle = ToggleKey{'Z', TF_MOD_ALT};
@@ -82,6 +84,7 @@ int main() {
             !def.engine.restore_non_vn,
         "mặc định trùng UniKey");
   Check(def.skip_input_scopes, "mặc định có bỏ qua ô URL/email/mật khẩu");
+  Check(def.engine.english_detect, "mặc định có nhận diện từ tiếng Anh");
   int preset_count = 0;
   const TogglePreset* presets = HodionTogglePresets(&preset_count);
   Check(preset_count > 0 && presets[0].key == def.toggle,

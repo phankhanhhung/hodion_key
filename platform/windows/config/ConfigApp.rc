@@ -15,7 +15,7 @@
 1 RT_MANIFEST "HodionKeyConfig.manifest"
 #endif
 
-IDD_CONFIG DIALOGEX 0, 0, 296, 297
+IDD_CONFIG DIALOGEX 0, 0, 296, 312
 STYLE DS_SETFONT | DS_MODALFRAME | DS_CENTER | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "HodionKey"
 FONT 8, "MS Shell Dlg", 400, 0, 0x1
@@ -44,21 +44,23 @@ BEGIN
     CONTROL         "Telex brackets", IDC_OPT_BRACKETS, "Button",
                     BS_AUTOCHECKBOX | WS_TABSTOP, 14, 133, 268, 12
 
-    GROUPBOX        "Mixed Vietnamese / English", IDC_GRP_MIXED, 7, 157, 282, 47
+    GROUPBOX        "Mixed Vietnamese / English", IDC_GRP_MIXED, 7, 157, 282, 62
     CONTROL         "Skip URL / e-mail / password fields", IDC_OPT_INPUTSCOPE,
                     "Button", BS_AUTOCHECKBOX | WS_GROUP | WS_TABSTOP,
                     14, 171, 268, 12
-    LTEXT           "", IDC_LBL_MIXEDHINT, 14, 187, 268, 10
+    CONTROL         "Restore known English words", IDC_OPT_ENGLISH,
+                    "Button", BS_AUTOCHECKBOX | WS_TABSTOP, 14, 186, 268, 12
+    LTEXT           "", IDC_LBL_MIXEDHINT, 14, 202, 268, 10
 
-    GROUPBOX        "Vietnamese on/off", IDC_GRP_TOGGLE, 7, 210, 282, 62
-    LTEXT           "Toggle key:", IDC_LBL_TOGGLE, 14, 226, 80, 10
-    COMBOBOX        IDC_COMBO_TOGGLE, 98, 224, 120, 120,
+    GROUPBOX        "Vietnamese on/off", IDC_GRP_TOGGLE, 7, 225, 282, 62
+    LTEXT           "Toggle key:", IDC_LBL_TOGGLE, 14, 241, 80, 10
+    COMBOBOX        IDC_COMBO_TOGGLE, 98, 239, 120, 120,
                     CBS_DROPDOWNLIST | WS_GROUP | WS_TABSTOP | WS_VSCROLL
     CONTROL         "Vietnamese input is on", IDC_CHK_VIETNAMESE, "Button",
-                    BS_AUTOCHECKBOX | WS_TABSTOP, 14, 243, 268, 12
-    LTEXT           "", IDC_LBL_HINT, 14, 257, 268, 10
+                    BS_AUTOCHECKBOX | WS_TABSTOP, 14, 258, 268, 12
+    LTEXT           "", IDC_LBL_HINT, 14, 272, 268, 10
 
-    PUSHBUTTON      "Defaults", IDC_DEFAULTS, 7, 274, 80, 16, WS_GROUP | WS_TABSTOP
-    DEFPUSHBUTTON   "OK", IDOK, 155, 274, 64, 16, WS_TABSTOP
-    PUSHBUTTON      "Cancel", IDCANCEL, 225, 274, 64, 16, WS_TABSTOP
+    PUSHBUTTON      "Defaults", IDC_DEFAULTS, 7, 289, 80, 16, WS_GROUP | WS_TABSTOP
+    DEFPUSHBUTTON   "OK", IDOK, 155, 289, 64, 16, WS_TABSTOP
+    PUSHBUTTON      "Cancel", IDCANCEL, 225, 289, 64, 16, WS_TABSTOP
 END
