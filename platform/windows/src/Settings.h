@@ -32,6 +32,9 @@ struct HodionSettings {
   hodion::Config engine;
   bool vietnamese_on = true;  // trạng thái gõ tiếng Việt hiện tại
   ToggleKey toggle;           // phím chuyển Việt/Anh
+  // Tự tắt tiếng Việt ở ô mà ứng dụng khai là URL/email/mật khẩu/số
+  // (hỏi qua ITfInputScope — xem InputScope.cpp).
+  bool skip_input_scopes = true;
 };
 
 // Danh sách phím chuyển dựng sẵn cho app cấu hình (phần tử 0 là mặc định).

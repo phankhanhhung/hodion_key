@@ -38,6 +38,11 @@ const Labels kLabels[] = {
     {IDC_OPT_RESTORE, L"Tự khôi phục từ không phải tiếng Việt (boxing)"},
     {IDC_OPT_WSHORTHAND, L"Telex: phím w thành ư khi không đánh được móc"},
     {IDC_OPT_BRACKETS, L"Telex: [ ] { } thành ơ ư Ơ Ư"},
+    {IDC_GRP_MIXED, L"Gõ trộn Việt – Anh"},
+    {IDC_OPT_INPUTSCOPE,
+     L"Tự tắt ở ô địa chỉ web, email, mật khẩu, ô số"},
+    {IDC_LBL_MIXEDHINT,
+     L"Ctrl + Backspace khi đang gõ dở: bỏ dấu cho riêng từ đó."},
     {IDC_GRP_TOGGLE, L"Chuyển Việt / Anh"},
     {IDC_LBL_TOGGLE, L"&Phím chuyển:"},
     {IDC_CHK_VIETNAMESE, L"Đang &bật gõ tiếng Việt"},
@@ -149,6 +154,7 @@ void LoadIntoDialog(HWND dlg, const HodionSettings& s) {
   Check(dlg, IDC_OPT_RESTORE, s.engine.restore_non_vn);
   Check(dlg, IDC_OPT_WSHORTHAND, s.engine.w_shorthand);
   Check(dlg, IDC_OPT_BRACKETS, s.engine.telex_brackets);
+  Check(dlg, IDC_OPT_INPUTSCOPE, s.skip_input_scopes);
   Check(dlg, IDC_CHK_VIETNAMESE, s.vietnamese_on);
 
   FillToggleCombo(dlg, s.toggle);
@@ -167,6 +173,7 @@ HodionSettings ReadFromDialog(HWND dlg, const ToggleKey& fallback) {
   s.engine.restore_non_vn = Checked(dlg, IDC_OPT_RESTORE);
   s.engine.w_shorthand = Checked(dlg, IDC_OPT_WSHORTHAND);
   s.engine.telex_brackets = Checked(dlg, IDC_OPT_BRACKETS);
+  s.skip_input_scopes = Checked(dlg, IDC_OPT_INPUTSCOPE);
   s.vietnamese_on = Checked(dlg, IDC_CHK_VIETNAMESE);
   s.toggle = SelectedToggleKey(dlg, fallback);
   return s;

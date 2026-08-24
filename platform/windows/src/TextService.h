@@ -75,18 +75,31 @@ class CTextService : public ITfTextInputProcessorEx,
     NotOurs,             // không đụng tới
     FinalizeAndForward,  // chốt composition đang dở rồi cho phím đi tiếp
     Eat,                 // engine xử lý, nuốt phím
+    CancelTransform,     // Ctrl+Backspace khi đang gõ dở: hủy biến đổi
   };
   KeyDisposition ClassifyKey(WPARAM wParam, wchar_t* outChar) const;
   HRESULT HandleEatenKey(ITfContext* pic, WPARAM wParam, wchar_t ch);
+  HRESULT HandleCancelTransform(ITfContext* pic);
 
-  HRESULT RequestSyncEdit(ITfContext* pic,
+  HRESULT RequestSyncEdit(ITfContext* pic, DWORD flags,
                           const std::function<HRESULT(TfEditCookie)>& fn);
+  HRESULT RequestSyncEdit(ITfContext* pic,
+                          const std::function<HRESULT(TfEditCookie)>& fn) {
+    return RequestSyncEdit(pic, TF_ES_SYNC | TF_ES_READWRITE, fn);
+  }
   HRESULT EnsureComposition(TfEditCookie ec, ITfContext* pic);
   HRESULT SetCompositionText(TfEditCookie ec, const std::wstring& text);
   HRESULT EndCompositionKeepText(TfEditCookie ec);
   // Chốt composition đang dở (giữ nguyên chữ trên màn hình), reset engine.
   void FinalizeComposition();
   void AbandonComposition();
+
+  // --- Ngữ cảnh nhập liệu (InputScope.cpp) ---
+  // Ô đang gõ có tự khai là URL / email / mật khẩu / số không? Hỏi lại một
+  // lần sau mỗi lần đổi focus hoặc đổi context, không hỏi mỗi phím.
+  bool QueryRawInputScope(ITfContext* pic);
+  void RefreshInputScope(ITfContext* pic);
+  void InvalidateInputScope() { scopeKnown_ = false; }
 
   // --- Cấu hình & bật/tắt tiếng Việt ---
   void ApplySettings(const HodionSettings& s);
@@ -114,6 +127,9 @@ class CTextService : public ITfTextInputProcessorEx,
   ToggleKey toggleKey_{};
   bool toggleRegistered_ = false;
   bool vietnamese_ = true;
+  bool skipInputScopes_ = true;
+  bool scopeRaw_ = false;    // ô hiện tại không nên gõ tiếng Việt
+  bool scopeKnown_ = false;  // đã hỏi ITfInputScope cho ô hiện tại chưa
   // Chặn vòng lặp khi chính ta ghi vào compartment OPENCLOSE.
   bool updatingCompartment_ = false;
 };

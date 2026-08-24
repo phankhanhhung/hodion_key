@@ -179,12 +179,20 @@ STDMETHODIMP CTextService::OnSetFocus(ITfDocumentMgr* /*pdimFocus*/,
   // Chuyển ô nhập/tài liệu: từ đang gõ dở được chốt tại chỗ.
   FinalizeComposition();
   ReloadSettingsIfChanged();
+  // Ô mới có thể là URL/mật khẩu — phải hỏi lại kiểu ô.
+  InvalidateInputScope();
   return S_OK;
 }
 
-STDMETHODIMP CTextService::OnPushContext(ITfContext*) { return S_OK; }
+STDMETHODIMP CTextService::OnPushContext(ITfContext*) {
+  InvalidateInputScope();
+  return S_OK;
+}
 
-STDMETHODIMP CTextService::OnPopContext(ITfContext*) { return S_OK; }
+STDMETHODIMP CTextService::OnPopContext(ITfContext*) {
+  InvalidateInputScope();
+  return S_OK;
+}
 
 // ---- ITfCompositionSink ---------------------------------------------------
 
@@ -199,14 +207,15 @@ STDMETHODIMP CTextService::OnCompositionTerminated(
 // ---- Composition helpers --------------------------------------------------
 
 HRESULT CTextService::RequestSyncEdit(
-    ITfContext* pic, const std::function<HRESULT(TfEditCookie)>& fn) {
+    ITfContext* pic, DWORD flags,
+    const std::function<HRESULT(TfEditCookie)>& fn) {
   if (!pic) return E_INVALIDARG;
   CEditSessionLambda* session = new (std::nothrow) CEditSessionLambda(fn);
   if (!session) return E_OUTOFMEMORY;
 
   HRESULT hrSession = E_FAIL;
-  const HRESULT hr = pic->RequestEditSession(
-      clientId_, session, TF_ES_SYNC | TF_ES_READWRITE, &hrSession);
+  const HRESULT hr =
+      pic->RequestEditSession(clientId_, session, flags, &hrSession);
   session->Release();
   return FAILED(hr) ? hr : hrSession;
 }
@@ -317,6 +326,8 @@ void CTextService::AbandonComposition() {
 void CTextService::ApplySettings(const HodionSettings& s) {
   engine_.set_config(s.engine);
   vietnamese_ = s.vietnamese_on;
+  skipInputScopes_ = s.skip_input_scopes;
+  InvalidateInputScope();
 
   if (!(s.toggle == toggleKey_)) {
     UnregisterToggleKey();

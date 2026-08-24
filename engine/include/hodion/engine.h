@@ -70,6 +70,17 @@ class Engine {
   // Backspace: xóa một ký tự hiển thị (di chuyển dấu thanh nếu cần).
   Result process_backspace();
 
+  // Hủy mọi biến đổi tiếng Việt của từ ĐANG gõ và chuyển sang gõ thẳng:
+  // phần còn lại của từ này được nối nguyên văn, không phím nào là phím
+  // dấu nữa. Dành cho từ tiếng Anh lọt giữa câu tiếng Việt ("deadline",
+  // "test") — rẻ hơn nhiều so với tắt/bật lại chế độ tiếng Việt.
+  //
+  // Cấu hình không đổi: chốt xong từ này là gõ tiếng Việt lại như thường.
+  // Trả về Action::None nếu không có gì đang gõ dở.
+  Result cancel_transform();
+  // Đang gõ thẳng (sau cancel_transform) — từ này không còn biến đổi nữa.
+  bool literal() const;
+
   bool composing() const;
   std::u32string composition() const;  // chuỗi hiển thị hiện tại
   // Chuỗi phím thô của từ, dùng cho Esc ("trả lại đúng chữ tao gõ"). Sau khi

@@ -112,6 +112,11 @@ struct Engine::Impl {
   // tự, mà một ký tự có thể do nhiều phím tạo ra (vieejt → 6 phím, 4 ký
   // tự), nên sau khi xóa ta không thể dựng lại chuỗi phím đã gõ.
   bool keys_valid = true;
+  // Chế độ gõ thẳng: người dùng đã hủy biến đổi cho từ này (cancel_transform),
+  // mọi phím còn lại chỉ nối vào lit. Word/keys không dùng nữa cho tới khi
+  // chốt từ.
+  bool literal = false;
+  std::u32string lit;
 
   static constexpr size_t kMaxCells = 40;
 
@@ -120,11 +125,14 @@ struct Engine::Impl {
     keys.clear();
     any_converted = false;
     keys_valid = true;
+    literal = false;
+    lit.clear();
   }
 
   // Chuỗi chốt từ: khôi phục phím thô nếu bật tùy chọn và từ không phải
   // tiếng Việt hợp lệ (mirror hành vi autoNonVnRestore của UniKey).
   std::u32string commit_text() const {
+    if (literal) return lit;
     if (cfg.restore_non_vn && cfg.spell_check && !word.single_mode() &&
         keys_valid && any_converted && word.is_non_vn(cfg) &&
         word.has_vn_mark()) {
@@ -155,11 +163,18 @@ bool Engine::starts_word(char32_t ch) const {
   return false;
 }
 
-bool Engine::composing() const { return !impl_->word.empty(); }
+bool Engine::composing() const {
+  return impl_->literal || !impl_->word.empty();
+}
 
-std::u32string Engine::composition() const { return impl_->word.render(); }
+bool Engine::literal() const { return impl_->literal; }
+
+std::u32string Engine::composition() const {
+  return impl_->literal ? impl_->lit : impl_->word.render();
+}
 
 std::u32string Engine::raw() const {
+  if (impl_->literal) return impl_->lit;
   if (!impl_->keys_valid) return impl_->word.render();
   return std::u32string(impl_->keys.begin(), impl_->keys.end());
 }
@@ -177,6 +192,12 @@ void Engine::reset() { impl_->reset(); }
 bool Engine::self_check() const {
   const Impl& im = *impl_;
   if (!im.word.check_invariants()) return false;
+  // Gõ thẳng và ghép âm tiết loại trừ nhau: chỉ một bên giữ trạng thái.
+  if (im.literal) {
+    if (!im.word.empty() || !im.keys.empty() || im.lit.empty()) return false;
+  } else if (!im.lit.empty()) {
+    return false;
+  }
   // Nhật ký phím chỉ tồn tại khi còn tin cậy được.
   if (!im.keys_valid && !im.keys.empty()) return false;
   // Không ghép gì thì không còn gì sót lại.
@@ -188,6 +209,30 @@ bool Engine::self_check() const {
 Engine::Result Engine::process_char(char32_t ch) {
   Impl& im = *impl_;
   const Config& cfg = im.cfg;
+
+  // Gõ thẳng: không phân loại phím nữa, chỉ nối cho tới khi gặp ký tự ngắt từ.
+  if (im.literal) {
+    if (is_break_char(ch)) {
+      Result r;
+      r.action = Result::Action::Commit;
+      r.text = im.lit;
+      r.text.push_back(ch);
+      im.reset();
+      return r;
+    }
+    im.lit.push_back(ch);
+    if (im.lit.size() >= Impl::kMaxCells) {
+      Result r;
+      r.action = Result::Action::Commit;
+      r.text = im.lit;
+      im.reset();
+      return r;
+    }
+    Result r;
+    r.action = Result::Action::Composing;
+    r.text = im.lit;
+    return r;
+  }
 
   if (im.word.empty() && !starts_word(ch)) return Result{};
 
@@ -272,6 +317,26 @@ Engine::Result Engine::process_char(char32_t ch) {
 
 Engine::Result Engine::process_backspace() {
   Impl& im = *impl_;
+
+  if (im.literal) {
+    if (im.lit.empty()) {  // không xảy ra khi bất biến còn đúng
+      im.literal = false;
+      return Result{};
+    }
+    im.lit.pop_back();
+    // Xóa hết thì thoát chế độ gõ thẳng — từ kế tiếp gõ tiếng Việt lại, và
+    // nhật ký phím dùng được trở lại (nếu không, Esc của từ sau chỉ trả về
+    // chữ đang hiển thị thay vì chuỗi phím thô).
+    if (im.lit.empty()) {
+      im.literal = false;
+      im.keys_valid = true;
+    }
+    Result r;
+    r.action = Result::Action::Composing;
+    r.text = im.lit;
+    return r;
+  }
+
   if (im.word.empty()) return Result{};
 
   im.word.backspace(im.cfg);
@@ -284,6 +349,27 @@ Engine::Result Engine::process_backspace() {
   Result r;
   r.action = Result::Action::Composing;
   r.text = im.word.render();
+  return r;
+}
+
+Engine::Result Engine::cancel_transform() {
+  Impl& im = *impl_;
+  if (im.literal || im.word.empty()) return Result{};
+
+  // raw() cho lại đúng chuỗi phím đã gõ; nếu người dùng đã Backspace thì
+  // không dựng lại được nữa và ta giữ nguyên chữ đang hiển thị (giống Esc).
+  std::u32string text = raw();
+
+  im.word.clear();
+  im.keys.clear();
+  im.any_converted = false;
+  im.keys_valid = false;
+  im.literal = true;
+  im.lit = std::move(text);
+
+  Result r;
+  r.action = Result::Action::Composing;
+  r.text = im.lit;
   return r;
 }
 

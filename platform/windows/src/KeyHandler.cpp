@@ -54,11 +54,20 @@ CTextService::KeyDisposition CTextService::ClassifyKey(WPARAM wParam,
   *outChar = 0;
   const bool composing = engine_.composing();
 
-  // Tắt tiếng Việt: mọi phím đi thẳng tới ứng dụng (phím chuyển được TSF
-  // giao riêng qua OnPreservedKey nên không đi qua đây).
-  if (!vietnamese_) {
+  // Tắt tiếng Việt, hoặc ô nhập tự khai là URL/email/mật khẩu/số: mọi phím
+  // đi thẳng tới ứng dụng (phím chuyển được TSF giao riêng qua
+  // OnPreservedKey nên không đi qua đây).
+  if (!vietnamese_ || scopeRaw_) {
     return composing ? KeyDisposition::FinalizeAndForward
                      : KeyDisposition::NotOurs;
+  }
+
+  // Ctrl + Backspace khi đang gõ dở: hủy biến đổi tiếng Việt của từ này rồi
+  // gõ thẳng phần còn lại ("deadline", "test"…). Chỉ chiếm phím lúc đang
+  // composing nên Ctrl+Backspace "xóa một từ" của ứng dụng vẫn nguyên vẹn.
+  if (composing && wParam == VK_BACK && IsKeyPressed(VK_CONTROL) &&
+      !IsKeyPressed(VK_MENU) && !engine_.literal()) {
+    return KeyDisposition::CancelTransform;
   }
 
   // Tổ hợp Ctrl/Alt (hotkey của ứng dụng): không can thiệp,
@@ -151,6 +160,15 @@ HRESULT CTextService::HandleEatenKey(ITfContext* pic, WPARAM wParam,
   }
 }
 
+HRESULT CTextService::HandleCancelTransform(ITfContext* pic) {
+  const auto r = engine_.cancel_transform();
+  if (r.action != hodion::Engine::Result::Action::Composing) return S_OK;
+  const std::wstring text = HodionToWide(r.text);
+  // Composition vẫn mở: người dùng gõ tiếp phần còn lại của từ tiếng Anh.
+  return RequestSyncEdit(
+      pic, [&](TfEditCookie ec) { return SetCompositionText(ec, text); });
+}
+
 // ---- ITfKeyEventSink ------------------------------------------------------
 
 STDMETHODIMP CTextService::OnSetFocus(BOOL fForeground) {
@@ -158,9 +176,12 @@ STDMETHODIMP CTextService::OnSetFocus(BOOL fForeground) {
   return S_OK;
 }
 
-STDMETHODIMP CTextService::OnTestKeyDown(ITfContext* /*pic*/, WPARAM wParam,
+STDMETHODIMP CTextService::OnTestKeyDown(ITfContext* pic, WPARAM wParam,
                                          LPARAM /*lParam*/, BOOL* pfEaten) {
   if (!pfEaten) return E_INVALIDARG;
+  // Hỏi kiểu ô nhập một lần cho mỗi lần đổi focus/context. OnKeyDown luôn
+  // đi sau OnTestKeyDown nên hai bên nhìn thấy cùng một câu trả lời.
+  RefreshInputScope(pic);
   wchar_t ch = 0;
   const KeyDisposition d = ClassifyKey(wParam, &ch);
   if (d == KeyDisposition::FinalizeAndForward) {
@@ -168,7 +189,8 @@ STDMETHODIMP CTextService::OnTestKeyDown(ITfContext* /*pic*/, WPARAM wParam,
     // phải chốt composition ngay tại đây.
     FinalizeComposition();
   }
-  *pfEaten = (d == KeyDisposition::Eat);
+  *pfEaten = (d == KeyDisposition::Eat ||
+              d == KeyDisposition::CancelTransform);
   return S_OK;
 }
 
@@ -177,6 +199,7 @@ STDMETHODIMP CTextService::OnKeyDown(ITfContext* pic, WPARAM wParam,
   if (!pfEaten) return E_INVALIDARG;
   // Giữa các từ là thời điểm an toàn để nạp cấu hình vừa đổi.
   if (!engine_.composing()) ReloadSettingsIfChanged();
+  RefreshInputScope(pic);
 
   wchar_t ch = 0;
   const KeyDisposition d = ClassifyKey(wParam, &ch);
@@ -184,6 +207,9 @@ STDMETHODIMP CTextService::OnKeyDown(ITfContext* pic, WPARAM wParam,
     case KeyDisposition::Eat:
       *pfEaten = TRUE;
       return HandleEatenKey(pic, wParam, ch);
+    case KeyDisposition::CancelTransform:
+      *pfEaten = TRUE;
+      return HandleCancelTransform(pic);
     case KeyDisposition::FinalizeAndForward:
       FinalizeComposition();
       *pfEaten = FALSE;

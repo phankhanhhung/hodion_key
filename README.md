@@ -16,6 +16,10 @@ với **engine gõ tách rời hoàn toàn** để port sang macOS/Linux.
 - Ký tự Unicode dựng sẵn (NFC) — hiển thị đúng ở mọi ứng dụng.
 - **Phím chuyển Việt/Anh** (mặc định `Ctrl + Space`) và **app cấu hình** —
   đổi tùy chọn là có hiệu lực ngay, không phải khởi động lại ứng dụng đang gõ.
+- **Gõ trộn Việt – Anh**: tự tắt ở ô mà ứng dụng khai là địa chỉ web, email,
+  mật khẩu hay ô số (hỏi qua `ITfInputScope`, không đoán mò); và
+  `Ctrl + Backspace` khi đang gõ dở để bỏ dấu cho **riêng từ đó**
+  (`te` → `Ctrl+Backspace` → gõ tiếp `st` ra `test` thay vì `tét`).
 - Composition chuẩn TSF: đoạn đang gõ gạch chân, Backspace xóa một ký tự
   (dấu thanh tự lùi đúng chỗ), Esc trả lại chuỗi phím thô, Enter/Tab/chuột
   chốt từ tự nhiên.
@@ -130,6 +134,32 @@ Lưu ý: `regsvr32` ghi nhớ đường dẫn tới DLL, nên hãy đặt file �
 
 Gỡ: `regsvr32 /u HodionKey.dll` (và bản `SysWOW64` tương ứng).
 
+## Gõ trộn Việt / Anh
+
+Hai cơ chế, không cần mô hình nào:
+
+**Tự tắt theo ô nhập.** Ứng dụng tự khai kiểu dữ liệu của ô qua
+`ITfInputScope` — ô địa chỉ web, ô email, ô mật khẩu, ô số. Ở những ô đó
+HodionKey không biến đổi gì cả. Ô nào khai nhiều kiểu cùng lúc mà có ít
+nhất một kiểu cho phép văn bản tự do (thanh địa chỉ trình duyệt vừa là URL
+vừa là ô tìm kiếm) thì vẫn gõ tiếng Việt được — chặn nhầm ô người ta muốn
+gõ tiếng Việt tệ hơn là bỏ sót một ô URL. Tắt cơ chế này trong app cấu hình
+nếu không thích.
+
+**`Ctrl + Backspace` khi đang gõ dở** bỏ dấu cho riêng từ đang gõ: chữ quay
+về đúng chuỗi phím đã bấm, và phần còn lại của từ được gõ thẳng — không
+phím nào là phím dấu nữa.
+
+```
+gõ  t e            → te
+Ctrl + Backspace   → te   (từ này hết biến đổi)
+gõ  s t            → test     (không bấm thì ra "tét")
+```
+
+Chốt từ xong là tiếng Việt trở lại ngay, không phải bật/tắt gì. Phím này
+chỉ hoạt động khi đang gõ dở một từ, nên `Ctrl + Backspace` "xóa một từ"
+của ứng dụng vẫn nguyên vẹn.
+
 ## Chuyển Việt / Anh
 
 Bấm **`Ctrl + Space`** (mặc định) khi đang gõ để bật/tắt tiếng Việt — không
@@ -158,6 +188,7 @@ hoặc triển khai theo chính sách. Mặc định trùng với mặc định 
 | `WShorthand`    | `1`      | Telex: `w` không áp được móc thì thành `ư`       |
 | `TelexBrackets` | `1`      | Telex đầy đủ: `[ ] { }` → `ơ ư Ơ Ư`              |
 | `VietnameseOn`  | `1`      | Đang bật gõ tiếng Việt (phím chuyển ghi vào đây) |
+| `SkipInputScopes` | `1`    | Tự tắt ở ô URL / email / mật khẩu / ô số        |
 | `ToggleKey`     | `0x20`   | Virtual-key của phím chuyển (`0x20` = Space)     |
 | `ToggleMods`    | `2`      | Modifier: 1 = Alt, 2 = Ctrl, 4 = Shift (cộng dồn) |
 
@@ -169,7 +200,8 @@ phím đó khi gõ, nên giá trị hỏng sẽ tự quay về mặc định.
 - [x] Bộ luật Telex/VNI tương thích UniKey (spell-check, gõ dấu tự do,
       khôi phục từ không phải tiếng Việt, `[ ]`, họ vần uo…)
 - [x] Phím chuyển Việt/Anh + app cấu hình (áp dụng tức thì)
-- [ ] Gõ trộn Việt–Anh: tự tắt theo input scope, quyết định theo từ lúc chốt
+- [x] Gõ trộn Việt–Anh: tự tắt theo input scope + phím bỏ dấu cho một từ
+- [ ] Gõ trộn Việt–Anh: từ điển Anh quyết định lúc chốt từ
 - [ ] Tự thêm dấu cho chữ không dấu (n-gram + Viterbi, tiến trình riêng)
 - [ ] Reconversion — sửa từ đã chốt không phải gõ lại
 - [ ] Port macOS (IMKit) và Linux (fcitx5) trên cùng engine

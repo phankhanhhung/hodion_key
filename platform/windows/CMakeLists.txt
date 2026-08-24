@@ -4,6 +4,7 @@ add_library(hodionkey_tsf SHARED
   src/DisplayAttribute.cpp
   src/DllMain.cpp
   src/Guids.cpp
+  src/InputScope.cpp
   src/KeyHandler.cpp
   src/Register.cpp
   src/Settings.cpp

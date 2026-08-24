@@ -85,7 +85,7 @@ int FuzzRounds(int fallback) {
 }
 
 struct Op {
-  enum Kind { Key, Backspace } kind;
+  enum Kind { Key, Backspace, Cancel } kind;
   char32_t ch;
 };
 
@@ -101,6 +101,8 @@ std::string DescribeOps(const std::vector<Op>& ops, const Config& cfg) {
   for (const Op& op : ops) {
     if (op.kind == Op::Backspace) {
       s += "<BS>";
+    } else if (op.kind == Op::Cancel) {
+      s += "<CANCEL>";
     } else {
       s += static_cast<char>(op.ch);
     }
@@ -247,6 +249,27 @@ void run_fuzz_tests() {
       ++g_checks;  // mỗi thao tác là một lượt kiểm tra bất biến
       const size_t before_len = e.composition().size();
 
+      // Hủy biến đổi giữa từ (Ctrl+Backspace ở tầng Windows): từ đó trở đi
+      // mọi phím chỉ nối nguyên văn cho tới khi chốt từ.
+      if (e.composing() && !e.literal() && rng.chance(5)) {
+        ops.push_back({Op::Cancel, 0});
+        const std::u32string want = e.raw();
+        const auto r = e.cancel_transform();
+        if (!e.self_check()) rep.fail("self_check sau cancel", ops, cfg);
+        if (r.action != Engine::Result::Action::Composing) {
+          rep.fail("cancel khi đang ghép phải trả Composing", ops, cfg);
+        }
+        if (!e.literal()) rep.fail("cancel không vào gõ thẳng", ops, cfg);
+        // Hủy trả lại đúng chuỗi thô, và từ đây raw() == chữ hiển thị.
+        if (e.composition() != want || e.raw() != want) {
+          rep.fail("cancel không trả đúng chuỗi thô", ops, cfg);
+        }
+        if (e.cancel_transform().action != Engine::Result::Action::None) {
+          rep.fail("cancel lần hai phải trả None", ops, cfg);
+        }
+        continue;
+      }
+
       // Backspace xen vào bất kỳ đâu trong lúc gõ.
       if (rng.chance(bs_rate)) {
         ops.push_back({Op::Backspace, 0});
@@ -319,6 +342,11 @@ void run_fuzz_tests() {
           ++keys_since_edit;
           if (!edited && e.raw().size() != keys_since_edit) {
             rep.fail("nhật ký phím lệch số phím đã gõ", ops, cfg);
+          }
+          // Gõ thẳng: phím chỉ được nối thêm, không đụng vào chữ đã có.
+          if (e.literal() && (after_len != before_len + 1 ||
+                              e.composition().back() != ch)) {
+            rep.fail("gõ thẳng mà phím vẫn biến đổi chữ", ops, cfg);
           }
           break;
         }

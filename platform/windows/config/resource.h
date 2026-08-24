@@ -17,6 +17,10 @@
 #define IDC_OPT_WSHORTHAND    1024
 #define IDC_OPT_BRACKETS      1025
 
+#define IDC_GRP_MIXED         1026
+#define IDC_OPT_INPUTSCOPE    1027
+#define IDC_LBL_MIXEDHINT     1028
+
 #define IDC_GRP_TOGGLE        1030
 #define IDC_LBL_TOGGLE        1031
 #define IDC_COMBO_TOGGLE      1032

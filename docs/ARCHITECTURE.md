@@ -104,6 +104,7 @@ implement:
   - chữ cái (và chữ số ở VNI khi đang ghép) → nuốt, đưa vào engine;
   - ký tự ngắt (space, dấu câu…) khi đang ghép → nuốt, chốt từ + ký tự;
   - Backspace/Esc khi đang ghép → nuốt (hoàn tác / trả chuỗi thô);
+  - `Ctrl + Backspace` khi đang ghép → nuốt, hủy biến đổi cho riêng từ đó;
   - Enter/Tab/mũi tên/Ctrl/Alt… khi đang ghép → chốt composition tại chỗ
     rồi **không nuốt** để phím hoạt động bình thường (người dùng không phải
     bấm hai lần);
@@ -115,6 +116,38 @@ implement:
 - `ITfCompartmentEventSink` — theo dõi compartment
   `GUID_COMPARTMENT_KEYBOARD_OPENCLOSE` để trạng thái bật/tắt luôn khớp với
   chỉ báo IME của hệ thống (người dùng tắt từ thanh ngôn ngữ cũng ăn).
+
+### Gõ trộn Việt – Anh
+
+Hai cơ chế tất định, không mô hình, không từ điển:
+
+**Ngữ cảnh ô nhập** (`src/InputScope.cpp`). Không đoán ngôn ngữ — hỏi thẳng
+ứng dụng qua `ITfInputScope`, lấy theo hai đường: QI trực tiếp trên
+`ITfContext` (nhiều ứng dụng để sẵn ở đó), nếu không có thì đọc thuộc tính
+`GUID_PROP_INPUTSCOPE` tại vị trí con trỏ trong một edit session **chỉ đọc**.
+Hỏi một lần cho mỗi lần đổi focus/context (`OnSetFocus`, `OnPushContext`,
+`OnPopContext` làm mất hiệu lực cache), không hỏi mỗi phím.
+
+Chỉ tắt khi **mọi** scope mà ô khai báo đều thuộc nhóm "không phải chỗ gõ
+tiếng Việt" (URL, đường dẫn, email, tên đăng nhập, mật khẩu/PIN, điện thoại,
+ngày/giờ, tiền tệ, chữ số, công thức). Ô khai nhiều kiểu mà có một kiểu cho
+phép văn bản tự do — thanh địa chỉ trình duyệt vừa `IS_URL` vừa `IS_SEARCH`
+— thì vẫn gõ tiếng Việt được: chặn nhầm ô người ta muốn gõ tiếng Việt tệ
+hơn là bỏ sót một ô URL. `IS_PERSONALNAME_*` và `IS_ADDRESS_*` **không**
+nằm trong nhóm chặn — tên người và địa chỉ Việt Nam rất cần dấu.
+
+Hỏi hỏng (ứng dụng không cho edit session đồng bộ, không khai scope) thì
+mặc định là **vẫn gõ tiếng Việt** — hỏng theo hướng không đổi hành vi cũ.
+
+**Hủy biến đổi cho một từ** (`Engine::cancel_transform`, gắn vào
+`Ctrl + Backspace`). Engine chuyển sang *chế độ gõ thẳng*: chữ quay về đúng
+chuỗi phím đã bấm và mọi phím còn lại của từ chỉ được nối nguyên văn — `s`,
+`f`, `w`, `6`… hết là phím dấu. Chốt từ là thoát chế độ đó, không cần bật
+tắt gì. Chế độ này nằm **trong engine** chứ không ở tầng Windows, nên macOS
+và Linux dùng lại nguyên vẹn.
+
+Phím chỉ bị chiếm khi đang gõ dở một từ, nên `Ctrl + Backspace` "xóa một
+từ" của ứng dụng không mất.
 
 ### Bật/tắt tiếng Việt và cấu hình
 
