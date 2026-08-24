@@ -6,9 +6,11 @@ add_library(hodionkey_tsf SHARED
   src/Guids.cpp
   src/InputScope.cpp
   src/KeyHandler.cpp
+  src/Reconversion.cpp
   src/Register.cpp
   src/Settings.cpp
   src/TextService.cpp
+  src/WordScan.cpp
   HodionKey.def
 )
 
@@ -81,9 +83,11 @@ endif()
 add_executable(hodionkey_settings_test
   tests/settings_test.cpp
   src/Settings.cpp
+  src/WordScan.cpp
 )
 target_include_directories(hodionkey_settings_test PRIVATE src)
 target_link_libraries(hodionkey_settings_test PRIVATE hodion_engine advapi32)
+target_include_directories(hodionkey_settings_test PRIVATE src)
 target_compile_definitions(hodionkey_settings_test PRIVATE UNICODE _UNICODE)
 if(MSVC)
   target_compile_options(hodionkey_settings_test PRIVATE /utf-8 /W4)

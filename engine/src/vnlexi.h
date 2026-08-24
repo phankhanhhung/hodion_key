@@ -52,6 +52,9 @@ const VSeqInfo& vseq(int id);
 int cseq_lookup(const VGlyph* g, int len);
 const CSeqInfo& cseq(int id);
 
+// Âm cuối tắc (c, ch, p, t): chỉ nhận sắc và nặng.
+bool is_stop_coda(int cs);
+
 // Một số id dùng trực tiếp trong luật.
 extern int kVSeq_oa, kVSeq_oe, kVSeq_uy;
 extern int kCSeq_c, kCSeq_ch, kCSeq_p, kCSeq_t;
@@ -65,12 +68,23 @@ bool valid_cvc(int c1, int vs, int c2);     // cả âm tiết (kèm ngoại l�
 
 bool is_vowel_letter(char32_t lower);       // a e i o u y
 
+// f, j, w không thuộc bảng chữ tiếng Việt — chúng là ký tự "ngoại lai"
+// (không mở/nối âm tiết hợp lệ), giống phân loại của UniKey. Lưu ý `z`
+// KHÔNG bị loại ở đây, đúng như UniKey phân loại khi gõ.
+bool is_vn_letter(char32_t lower);
+
 // Vị trí nhận dấu thanh trong vần (offset trong vần).
 // terminated = vần nằm ở cuối từ (chưa có âm cuối).
 int tone_offset(int vs, bool terminated, bool modern_style);
 
 // Bảng ký tự: (chữ gốc, dấu phụ, thanh, hoa/thường) → codepoint dựng sẵn.
 char32_t composed_char(char32_t base, Mark mark, ToneId tone, bool upper);
+
+// Chiều ngược lại: tách một ký tự dựng sẵn (hoặc chữ cái ASCII) thành các
+// thành phần. Trả về false nếu ký tự không phải chữ cái nào — khi đó các
+// tham số ra không bị đụng tới.
+bool decompose_char(char32_t c, char32_t* base, Mark* mark, ToneId* tone,
+                    bool* upper);
 
 // Id vần dùng cho luật họ uo.
 extern int kVSeq_uo, kVSeq_uor, kVSeq_uoh, kVSeq_uho, kVSeq_uhoh, kVSeq_uhoi,

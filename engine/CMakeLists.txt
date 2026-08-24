@@ -4,6 +4,7 @@ add_library(hodion_engine STATIC
   src/vnlexi.cpp
   src/word.cpp
   src/engine.cpp
+  src/reconvert.cpp
   src/engine_c.cpp
   src/utf.cpp
 )
@@ -23,6 +24,7 @@ add_executable(hodion_engine_tests
   tests/test_fuzz.cpp
   tests/test_gaps.cpp
   tests/test_mixed.cpp
+  tests/test_reconvert.cpp
   tests/test_engine.cpp
 )
 target_link_libraries(hodion_engine_tests PRIVATE hodion_engine)

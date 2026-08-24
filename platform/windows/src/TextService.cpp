@@ -42,6 +42,10 @@ STDMETHODIMP CTextService::QueryInterface(REFIID riid, void** ppv) {
     *ppv = static_cast<ITfCompartmentEventSink*>(this);
   } else if (IsEqualIID(riid, kIID_ITfDisplayAttributeProvider)) {
     *ppv = static_cast<ITfDisplayAttributeProvider*>(this);
+  } else if (IsEqualIID(riid, IID_ITfFunctionProvider)) {
+    *ppv = static_cast<ITfFunctionProvider*>(this);
+  } else if (IsEqualIID(riid, kIID_ITfFnReconversion)) {
+    *ppv = static_cast<ITfFnReconversion*>(this);
   } else {
     return E_NOINTERFACE;
   }

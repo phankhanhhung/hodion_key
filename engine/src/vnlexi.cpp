@@ -390,6 +390,16 @@ const CSeqInfo& cseq(int id) {
   return g_cseq[id];
 }
 
+bool is_stop_coda(int cs) {
+  init_tables();
+  return cs == kCSeq_c || cs == kCSeq_ch || cs == kCSeq_p || cs == kCSeq_t;
+}
+
+bool is_vn_letter(char32_t lower) {
+  return lower >= U'a' && lower <= U'z' && lower != U'f' && lower != U'j' &&
+         lower != U'w';
+}
+
 bool is_vowel_letter(char32_t lower) {
   return lower == U'a' || lower == U'e' || lower == U'i' || lower == U'o' ||
          lower == U'u' || lower == U'y';

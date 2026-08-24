@@ -406,6 +406,20 @@ void run_edge_tests() {
     EXPECT_TRUE(u16[0] == 0xD834 && u16[1] == 0xDD1E);
     EXPECT_TRUE(to_utf16(U"ệ").size() == 1);
 
+    // UTF-16 chiều ngược: khứ hồi, kể cả ngoài BMP.
+    using hodion::utf::from_utf16;
+    EXPECT_TRUE(from_utf16(to_utf16(vn)) == vn);
+    EXPECT_TRUE(from_utf16(to_utf16(wide)) == wide);
+    EXPECT_TRUE(from_utf16(std::u16string()).empty());
+    // Nửa cao cụt, nửa thấp lạc: bỏ đúng phần hỏng, giữ phần lành.
+    EXPECT_TRUE(from_utf16(std::u16string{0xD834}).empty());
+    EXPECT_TRUE(from_utf16(std::u16string{0xDD1E}).empty());
+    EXPECT_TRUE(from_utf16(std::u16string{u'A', 0xD834, u'B'}) == U"AB");
+    EXPECT_TRUE(from_utf16(std::u16string{u'A', 0xDD1E, u'B'}) == U"AB");
+    // Nửa cao theo sau bởi nửa cao: cái đầu bị bỏ, cái sau ghép tiếp.
+    EXPECT_TRUE(from_utf16(std::u16string{0xD834, 0xD834, 0xDD1E}) ==
+                U"\U0001D11E");
+
     // Đầu vào hỏng thì bỏ qua, không treo và không đọc lố.
     EXPECT_TRUE(from_utf8(std::string("\xC3")).empty());          // cụt
     EXPECT_TRUE(from_utf8(std::string("\xFF\xFE")).empty());      // byte lạ

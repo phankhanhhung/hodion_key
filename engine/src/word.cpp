@@ -17,17 +17,6 @@ bool is_ascii_letter(char32_t c) {
   return lc >= U'a' && lc <= U'z';
 }
 
-// f, j, w không thuộc bảng chữ tiếng Việt — chúng là ký tự "ngoại lai"
-// (không mở/nối âm tiết hợp lệ), giống phân loại của UniKey.
-bool is_vn_letter(char32_t lower) {
-  return lower >= U'a' && lower <= U'z' && lower != U'f' && lower != U'j' &&
-         lower != U'w';
-}
-
-bool is_stop_coda(int cs) {
-  return cs == kCSeq_c || cs == kCSeq_ch || cs == kCSeq_p || cs == kCSeq_t;
-}
-
 }  // namespace
 
 // Toàn bộ thao tác nội bộ gom vào WordOps để truy cập cells_.

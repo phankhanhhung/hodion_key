@@ -2,6 +2,7 @@
 
 #include <functional>
 #include <string>
+#include <vector>
 
 #include "HodionTsf.h"
 #include "Settings.h"
@@ -17,7 +18,9 @@ class CTextService : public ITfTextInputProcessorEx,
                      public ITfKeyEventSink,
                      public ITfCompositionSink,
                      public ITfCompartmentEventSink,
-                     public ITfDisplayAttributeProvider {
+                     public ITfDisplayAttributeProvider,
+                     public ITfFunctionProvider,
+                     public ITfFnReconversion {
  public:
   CTextService();
 
@@ -66,6 +69,27 @@ class CTextService : public ITfTextInputProcessorEx,
   STDMETHODIMP GetDisplayAttributeInfo(
       REFGUID guid, ITfDisplayAttributeInfo** ppInfo) override;
 
+  // ITfFunctionProvider — cửa để ứng dụng lấy ITfFnReconversion.
+  STDMETHODIMP GetType(GUID* pguid) override;
+  STDMETHODIMP GetDescription(BSTR* pbstrDesc) override;
+  STDMETHODIMP GetFunction(REFGUID rguid, REFIID riid,
+                           IUnknown** ppunk) override;
+
+  // ITfFunction / ITfFnReconversion — sửa dấu cho chữ ĐÃ chốt.
+  STDMETHODIMP GetDisplayName(BSTR* pbstrName) override;
+  STDMETHODIMP QueryRange(ITfRange* pRange, ITfRange** ppNewRange,
+                          BOOL* pfConvertable) override;
+  STDMETHODIMP GetReconversion(ITfRange* pRange,
+                               ITfCandidateList** ppCandList) override;
+  STDMETHODIMP Reconvert(ITfRange* pRange) override;
+
+  // Dùng bởi danh sách phương án của reconversion (Reconversion.cpp).
+  // Chỉ ghi khi văn bản trong `range` vẫn đúng bằng `expect` — người dùng
+  // có thể đã gõ tiếp kể từ lúc danh sách được dựng.
+  HRESULT ApplyReconversion(ITfContext* pic, ITfRange* range,
+                            const std::wstring& expect,
+                            const std::wstring& replacement);
+
  private:
   ~CTextService();
 
@@ -93,6 +117,13 @@ class CTextService : public ITfTextInputProcessorEx,
   // Chốt composition đang dở (giữ nguyên chữ trên màn hình), reset engine.
   void FinalizeComposition();
   void AbandonComposition();
+
+  // --- Reconversion (Reconversion.cpp) ---
+  // Tìm đúng đoạn văn bản sẽ đổi: đoạn đang bôi đen, hoặc từ mà con trỏ
+  // đang đứng trong đó. Trả về E_FAIL khi không có gì đổi được.
+  HRESULT FindReconvertRange(TfEditCookie ec, ITfRange* pRange,
+                             ITfRange** ppWord, std::wstring* outText);
+  std::vector<std::wstring> ReconvertCandidates(const std::wstring& word) const;
 
   // --- Ngữ cảnh nhập liệu (InputScope.cpp) ---
   // Ô đang gõ có tự khai là URL / email / mật khẩu / số không? Hỏi lại một

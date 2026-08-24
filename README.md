@@ -21,6 +21,9 @@ với **engine gõ tách rời hoàn toàn** để port sang macOS/Linux.
   17.467 từ tiếng Anh trả lại nguyên chữ lúc chốt từ (`meeting`, `server`
   thay vì `mêting`, `sẻver`); và `Ctrl + Backspace` khi đang gõ dở để bỏ
   dấu cho **riêng từ đó**.
+- **Sửa dấu cho chữ đã chốt** (`ITfFnReconversion`): bôi đen một chữ — hoặc
+  đặt con trỏ vào giữa nó — rồi đổi sang phương án khác, không phải gõ lại
+  cả từ (`duong` → dương, đường, duống, đuông…).
 - Composition chuẩn TSF: đoạn đang gõ gạch chân, Backspace xóa một ký tự
   (dấu thanh tự lùi đúng chỗ), Esc trả lại chuỗi phím thô, Enter/Tab/chuột
   chốt từ tự nhiên.
@@ -61,7 +64,7 @@ tái hiện. Chạy soak lâu hơn và xem thống kê:
 HODION_FUZZ_ROUNDS=200000 HODION_FUZZ_STATS=1 ./build/engine/hodion_engine_tests
 ```
 
-Chất lượng bộ test: độ phủ **99% dòng / 81% nhánh**, điểm **mutation testing
+Chất lượng bộ test: độ phủ **98% dòng / 81% nhánh**, điểm **mutation testing
 86,9%** (gieo lỗi vào engine rồi xem test có bắt không — thước đo thật, vì
 phủ 97% dòng mà mutation vẫn từng tìm ra 130 lỗ hổng), và engine sạch dưới
 **AddressSanitizer + UBSan** qua hơn 11 triệu lượt kiểm tra. Chi tiết ở
@@ -69,7 +72,8 @@ phủ 97% dòng mà mutation vẫn từng tìm ra 130 lỗ hổng), và engine s
 
 ```sh
 python3 tools/mutation_test.py --asan                    # mutation testing
-gcovr --root . --filter 'engine/src/' --txt --branches   # độ phủ
+gcovr --root . --filter 'engine/src/' --filter 'wordlist/src/' \
+      --txt --branches                                   # độ phủ
 ```
 
 Thử engine ngay trên terminal:
@@ -188,6 +192,26 @@ cần đổi bàn phím. Phím chuyển đổi được trong app cấu hình (`
 Trạng thái bật/tắt dùng chung cho mọi ứng dụng đang gõ (lưu ở registry), và
 đồng bộ với chỉ báo IME của Windows — tắt từ thanh ngôn ngữ cũng có tác dụng.
 
+## Sửa dấu cho chữ đã gõ rồi
+
+Bôi đen một chữ, hoặc chỉ đặt con trỏ vào giữa nó, rồi gọi lệnh chuyển đổi
+lại của ứng dụng (Word, WordPad và nhiều ứng dụng Office có; ứng dụng nào
+không hỗ trợ `ITfFnReconversion` thì chưa dùng được — phím tắt riêng nằm
+trong lộ trình).
+
+HodionKey trả về mọi âm tiết tiếng Việt có cùng chuỗi chữ cái gốc, xếp chữ
+đang có lên đầu rồi tới những chữ khác nó ít nhất:
+
+```
+duong  → duông duống duồng … dương dường … đường đượng
+đường  → đường dường đương đướng đưởng … duộng
+```
+
+Danh sách chỉ chứa chữ mà **gõ tay cũng ra được** — nó được sinh bằng cách
+cho chính engine gõ lại chuỗi chữ cái gốc với mọi tổ hợp phím dấu, chứ
+không phải duyệt bảng vần (duyệt bảng sẽ đẻ ra "gía", "quýen", "dưong" —
+những chữ bộ gõ không bao giờ sinh ra).
+
 ## Cấu hình
 
 Chạy **`HodionKeyConfig.exe`** để chỉnh bằng hộp thoại. Bấm OK là các ứng
@@ -223,7 +247,7 @@ phím đó khi gõ, nên giá trị hỏng sẽ tự quay về mặc định.
 - [x] Gõ trộn Việt–Anh: tự tắt theo input scope + phím bỏ dấu cho một từ
 - [x] Gõ trộn Việt–Anh: từ điển Anh quyết định lúc chốt từ
 - [ ] Tự thêm dấu cho chữ không dấu (n-gram + Viterbi, tiến trình riêng)
-- [ ] Reconversion — sửa từ đã chốt không phải gõ lại
+- [x] Reconversion — sửa từ đã chốt không phải gõ lại
 - [ ] Port macOS (IMKit) và Linux (fcitx5) trên cùng engine
 - [ ] Gõ tắt (macro) người dùng định nghĩa, VIQR
 - [ ] Chỉ báo trạng thái trên thanh ngôn ngữ / khay hệ thống

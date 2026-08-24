@@ -72,6 +72,53 @@ char32_t ascii_upper(char32_t c) {
 
 }  // namespace
 
+namespace {
+
+// (hàng, dấu phụ) của bảng ký tự — nghịch đảo của row_of.
+constexpr struct {
+  char32_t base;
+  Mark mark;
+} kRowInfo[12] = {
+    {U'a', Mark::None}, {U'a', Mark::Breve},      {U'a', Mark::Circumflex},
+    {U'e', Mark::None}, {U'e', Mark::Circumflex}, {U'i', Mark::None},
+    {U'o', Mark::None}, {U'o', Mark::Circumflex}, {U'o', Mark::Horn},
+    {U'u', Mark::None}, {U'u', Mark::Horn},       {U'y', Mark::None},
+};
+
+}  // namespace
+
+bool decompose_char(char32_t c, char32_t* base, Mark* mark, ToneId* tone,
+                    bool* upper) {
+  for (int row = 0; row < 12; ++row) {
+    for (int col = 0; col < kToneCount; ++col) {
+      const bool up = kUpper[row][col] == c;
+      if (!up && kLower[row][col] != c) continue;
+      *base = kRowInfo[row].base;
+      *mark = kRowInfo[row].mark;
+      *tone = static_cast<ToneId>(col);
+      *upper = up;
+      return true;
+    }
+  }
+  if (c == U'đ' || c == U'Đ') {
+    *base = U'd';
+    *mark = Mark::Stroke;
+    *tone = 0;
+    *upper = c == U'Đ';
+    return true;
+  }
+  // Chữ cái ASCII còn lại (kể cả f/j/w/z không thuộc bảng tiếng Việt).
+  if ((c >= U'a' && c <= U'z') || (c >= U'A' && c <= U'Z')) {
+    const bool up = c <= U'Z';
+    *base = up ? c + 32 : c;
+    *mark = Mark::None;
+    *tone = 0;
+    *upper = up;
+    return true;
+  }
+  return false;
+}
+
 char32_t composed_char(char32_t base, Mark mark, ToneId tone, bool upper) {
   if (base == U'd' && mark == Mark::Stroke) return upper ? U'Đ' : U'đ';
 

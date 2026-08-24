@@ -4,9 +4,12 @@ Tài liệu này chốt lại phần **bàn bạc thiết kế** cho các tính 
 làm: nhận diện tiếng Anh khi gõ văn bản trộn, tự thêm dấu cho chữ Việt
 không dấu, sửa từ đã chốt, và tự sửa lỗi chính tả.
 
-Chưa có dòng code nào cho những thứ dưới đây. Mục đích của tài liệu là
-để khi bắt tay vào làm thì không phải cãi lại từ đầu, và để những quyết
-định "không làm" cũng có lý do được ghi lại.
+Mục 1–4 (gõ trộn Việt–Anh, reconversion) **đã làm xong** — mục 7 ghi rõ
+mục nào và những gì rút ra khi làm. Mục 5–8 (tự thêm dấu bằng mô hình) thì
+chưa có dòng code nào.
+
+Mục đích của tài liệu là để khi bắt tay vào làm thì không phải cãi lại từ
+đầu, và để những quyết định "không làm" cũng có lý do được ghi lại.
 
 Trạng thái hiện tại của dự án (đã xong, đã có test) nằm ở
 [ARCHITECTURE.md](ARCHITECTURE.md) và [unikey-rules.md](unikey-rules.md).
@@ -292,21 +295,43 @@ Nếu vẫn muốn làm, giới hạn cứng:
 
 ## 7. Thứ tự triển khai đề xuất
 
-| # | Việc | Chi phí | Rủi ro | Giá trị |
-|---|---|---|---|---|
-| 1 | Input scope → tự tắt ở ô URL/email/mật khẩu | thấp | ~0 | cao |
-| 2 | Phím huỷ biến đổi từ hiện tại | thấp | ~0 | vừa |
-| 3 | Từ điển Anh cho quyết định lúc chốt | vừa | thấp | cao |
-| 4 | Reconversion (`ITfFnReconversion`) | vừa | vừa | vừa |
-| 5 | n-gram + Viterbi thêm dấu, tiến trình riêng | cao | vừa | cao |
-| 6 | Phím xoay vòng + display attribute độ tin cậy | vừa | thấp | cao |
-| 7 | Bám lại từ khi con trỏ đứng cuối từ | vừa | cao | vừa |
-| 8 | Mô hình neural thay n-gram | cao | vừa | thấp |
-| — | Tự sửa chính tả theo từ điển | vừa | **cao** | **âm** |
-| — | Picker trong luồng gõ | cao | cao | **âm** |
+| # | Việc | Chi phí | Rủi ro | Giá trị | |
+|---|---|---|---|---|---|
+| 1 | Input scope → tự tắt ở ô URL/email/mật khẩu | thấp | ~0 | cao | **xong** |
+| 2 | Phím huỷ biến đổi từ hiện tại | thấp | ~0 | vừa | **xong** |
+| 3 | Từ điển Anh cho quyết định lúc chốt | vừa | thấp | cao | **xong** |
+| 4 | Reconversion (`ITfFnReconversion`) | vừa | vừa | vừa | **xong** |
+| 5 | n-gram + Viterbi thêm dấu, tiến trình riêng | cao | vừa | cao | |
+| 6 | Phím xoay vòng + display attribute độ tin cậy | vừa | thấp | cao | |
+| 7 | Bám lại từ khi con trỏ đứng cuối từ | vừa | cao | vừa | |
+| 8 | Mô hình neural thay n-gram | cao | vừa | thấp | |
+| — | Tự sửa chính tả theo từ điển | vừa | **cao** | **âm** | không làm |
+| — | Picker trong luồng gõ | cao | cao | **âm** | không làm |
 
-Mục 1–4 không cần mô hình nào và giải quyết được phần lớn phiền toái thực
-tế của việc gõ trộn. Nên làm hết trước khi đụng tới mục 5.
+Mục 1–4 đã làm xong (chi tiết ở [ARCHITECTURE.md](ARCHITECTURE.md)) và
+không cần mô hình nào.
+
+Ba điều rút ra khi làm, đáng ghi lại vì chúng đổi cách nghĩ về mục 5–6:
+
+**Từ điển tiếng Anh không giải được ca khó nhất, và đó là kết luận đúng.**
+889 trong 18.356 từ tiếng Anh bị Telex biến thành một âm tiết tiếng Việt
+*hợp lệ và phổ biến* — `bans`→bán, `bust`→bút, `test`→tét. Ở đó không có
+bằng chứng nào phân xử được, nên bộ gõ phải im lặng giữ nguyên chữ tiếng
+Việt. Chính vì vậy mục 2 (phím huỷ biến đổi) không phải phụ kiện: nó là
+đường thoát cho đúng cái 5% mà không dữ liệu tĩnh nào cứu được. Ngữ cảnh
+câu — tức mục 5 — mới là thứ giải được lớp này.
+
+**Danh sách phương án phải sinh bằng cách gõ thử, không phải duyệt bảng.**
+Duyệt bảng vần cho ra cả những chữ bộ luật gõ không bao giờ sinh ("gía",
+"quýen", "dưong"). Bài học chung cho mục 6: mọi thứ đề xuất cho người dùng
+phải là thứ họ gõ tay cũng ra được, nếu không họ sẽ mất niềm tin vào cả
+tính năng.
+
+**Chưa có mô hình thì đừng giả vờ có.** Danh sách phương án xếp theo *gần
+với chữ đang có nhất*, không phải theo "hay gặp" — vì engine không có dữ
+liệu tần suất. Một thứ tự đoán mò tệ hơn một thứ tự học thuộc được. Xếp
+theo tần suất là việc của mô hình n-gram ở mục 5, và khi có nó thì chỗ cắm
+vào đã sẵn: chỉ đổi hàm so sánh trong `syllable_variants`.
 
 ---
 
@@ -318,14 +343,16 @@ Những thứ ở trên xây trên nền đã có:
   UniKey (viết lại từ đầu, không sao chép code).
 - Bảng 69 vần và bảng ghép phụ âm–vần — **chính là thứ sẽ dùng để sinh
   tập ứng viên** cho việc thêm dấu ở mục 3.
-- `is_non_vn()` và `RestoreNonVn` — **nền sẵn có** cho mục 1 tầng 2.
+- `is_non_vn()` và `RestoreNonVn` — nền cho luật cấu trúc lúc chốt từ.
+- Từ điển tiếng Anh 17.467 từ (`wordlist/`) và bộ sinh phương án dấu
+  (`engine/src/reconvert.cpp`) — **chỗ cắm sẵn** cho mô hình ở mục 5.
 - TSF text service với composition, display attribute, phím chuyển đồng
   bộ với chỉ báo IME của Windows, cấu hình áp dụng tức thì qua registry.
-- Chất lượng test: phủ 99% dòng / 81% nhánh, mutation score 86,9%, sạch
+- Chất lượng test: phủ 98% dòng / 81% nhánh, mutation score 86,9%, sạch
   dưới ASan+UBSan qua hơn 11 triệu lượt kiểm tra.
 
-Rủi ro đã biết và chưa gỡ được: **tầng TSF chưa từng chạy trên Windows
-thật** — mới chỉ được kiểm chứng ở mức biên dịch (MSVC qua CI, MinGW
-cross-compile) cộng với app cấu hình chạy dưới Wine. Bản 32-bit chưa từng
-được thực thi ở đâu. Việc xác nhận trên máy thật phải xong **trước** khi
-bắt đầu bất cứ mục nào ở trên.
+Rủi ro còn lại: tầng TSF **đã** chạy thử được trên Windows thật, nhưng mới
+là một lần thử. Bản 32-bit chưa từng được thực thi ở đâu, và phần
+reconversion (số học trên `ITfRange`) chỉ kiểm được bằng cách chạy trong
+một ứng dụng thật — ở đây mới chỉ tách được phần logic thuần ra để test,
+còn lại dựa vào ba lớp đọc-lại-trước-khi-ghi.

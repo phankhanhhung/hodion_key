@@ -6,9 +6,14 @@
 // khôi phục trước khi kết thúc.
 #include <msctf.h>
 
+#include <algorithm>
 #include <cstdio>
+#include <string>
 
 #include "Settings.h"
+#include "WordScan.h"
+#include "hodion/reconvert.h"
+#include "hodion/utf.h"
 
 namespace {
 
@@ -28,6 +33,30 @@ bool SameEngine(const hodion::Config& a, const hodion::Config& b) {
          a.w_shorthand == b.w_shorthand &&
          a.telex_brackets == b.telex_brackets &&
          a.english_detect == b.english_detect;
+}
+
+std::wstring Wide(const char32_t* s) {
+  const std::u16string u16 = hodion::utf::to_utf16(std::u32string(s));
+  return std::wstring(u16.begin(), u16.end());
+}
+
+// Kiểm tra ranh giới từ quanh con trỏ: `text` là văn bản với dấu | đánh dấu
+// vị trí con trỏ; `want` là từ phải lấy ra.
+void CheckWord(const char32_t* text, const char32_t* want) {
+  const std::wstring all = Wide(text);
+  const size_t caret = all.find(L'|');
+  const std::wstring before = all.substr(0, caret);
+  const std::wstring after = all.substr(caret + 1);
+
+  size_t start = 0, end = 0;
+  HodionWordAround(before, after, &start, &end);
+  const std::wstring got = before.substr(start) + after.substr(0, end);
+  if (got != Wide(want)) {
+    ++g_failures;
+    std::printf("FAIL: ranh giới từ sai (lấy được %u ký tự, cần %u)\n",
+                static_cast<unsigned>(got.size()),
+                static_cast<unsigned>(Wide(want).size()));
+  }
 }
 
 }  // namespace
@@ -107,6 +136,57 @@ int main() {
     const HodionSettings bad = LoadHodionSettings();
     Check(bad.toggle.valid(), "phím chuyển thiếu modifier bị loại");
     Check(bad.toggle == presets[0].key, "quay về phím chuyển mặc định");
+  }
+
+  // --- Ranh giới từ cho reconversion ---
+  //
+  // Lấy nhầm ranh giới nghĩa là sửa nhầm chữ của người dùng, nên đây là chỗ
+  // phải chắc tay nhất trong cả tính năng.
+  {
+    // Con trỏ ở cuối từ, giữa từ, đầu từ.
+    CheckWord(U"viet|", U"viet");
+    CheckWord(U"vi|et", U"viet");
+    CheckWord(U"|viet", U"viet");
+    CheckWord(U"xin chao |viet nam", U"viet");
+    CheckWord(U"xin chao vi|et nam", U"viet");
+    CheckWord(U"xin chao viet| nam", U"viet");
+
+    // Chữ đã có dấu, kể cả đ.
+    CheckWord(U"việt|", U"việt");
+    CheckWord(U"đường| phượng", U"đường");
+    CheckWord(U"con đ|ường", U"đường");
+
+    // Không có chữ nào cạnh con trỏ.
+    CheckWord(U"a |", U"");
+    CheckWord(U"| b", U"");
+    CheckWord(U"|b c", U"b");
+    CheckWord(U"", U"");
+    CheckWord(U"|", U"");
+    CheckWord(U"123|456", U"");
+    CheckWord(U"a, |, b", U"");
+
+    // Dấu câu và chữ số cắt từ.
+    CheckWord(U"chao,viet|", U"viet");
+    CheckWord(U"a1viet|", U"viet");
+    CheckWord(U"viet|.nam", U"viet");
+    CheckWord(U"(viet|)", U"viet");
+
+    Check(HodionIsWordChar(L'a') && HodionIsWordChar(L'Z'),
+          "chữ cái ASCII là ký tự của từ");
+    Check(!HodionIsWordChar(L' ') && !HodionIsWordChar(L'.') &&
+              !HodionIsWordChar(L'1') && !HodionIsWordChar(L'\0'),
+          "dấu cách, dấu câu, chữ số không phải ký tự của từ");
+    Check(HodionIsWordChar(Wide(U"ệ")[0]) && HodionIsWordChar(Wide(U"đ")[0]),
+          "chữ tiếng Việt dựng sẵn là ký tự của từ");
+    Check(!HodionIsWordChar(Wide(U"中")[0]), "chữ Hán không phải chữ Việt");
+  }
+
+  // --- Danh sách phương án lấy đúng từ engine ---
+  {
+    const auto v = hodion::syllable_variants(U"duong", hodion::Config{});
+    Check(v.size() > 10, "duong có nhiều phương án");
+    Check(std::find(v.begin(), v.end(), std::u32string(U"đường")) != v.end(),
+          "đường nằm trong phương án của duong");
   }
 
   SaveHodionSettings(original);  // trả lại cấu hình của người dùng

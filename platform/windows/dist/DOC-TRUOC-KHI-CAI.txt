@@ -51,6 +51,14 @@ GÕ TRỘN VIỆT - ANH
   Muốn ra từ tiếng Anh thì bấm Ctrl+Backspace giữa chừng.
 - Tắt được từng thứ trong app cấu hình.
 
+SỬA DẤU CHO CHỮ ĐÃ GÕ RỒI
+-------------------------
+Bôi đen một chữ (hoặc đặt con trỏ vào giữa nó) rồi gọi lệnh chuyển đổi
+lại của ứng dụng — Word, WordPad và nhiều ứng dụng Office có. HodionKey
+đưa ra mọi âm tiết cùng chữ cái gốc, chữ đang có xếp đầu:
+  duong  ->  duông, duống, ..., dương, dường, ..., đường
+Ứng dụng nào không hỗ trợ thì chưa dùng được (phím tắt riêng chưa làm).
+
 GIẤY PHÉP TỪ ĐIỂN
 -----------------
 Bảng từ tiếng Anh lấy từ SCOWL của Kevin Atkinson; thông báo bản quyền

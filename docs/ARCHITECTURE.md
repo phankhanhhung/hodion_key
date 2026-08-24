@@ -112,6 +112,8 @@ implement:
 - `ITfCompositionSink` — ứng dụng tự kết thúc composition (click chuột…) thì
   engine bỏ trạng thái để không lệch với màn hình.
 - `ITfDisplayAttributeProvider` — gạch chân đoạn đang ghép.
+- `ITfFunctionProvider` + `ITfFnReconversion` — sửa dấu cho chữ đã chốt
+  (xem mục riêng bên dưới).
 - `ITfThreadMgrEventSink` — đổi focus là chốt từ đang gõ dở.
 - `ITfCompartmentEventSink` — theo dõi compartment
   `GUID_COMPARTMENT_KEYBOARD_OPENCLOSE` để trạng thái bật/tắt luôn khớp với
@@ -153,6 +155,39 @@ và Linux dùng lại nguyên vẹn.
 
 Phím chỉ bị chiếm khi đang gõ dở một từ, nên `Ctrl + Backspace` "xóa một
 từ" của ứng dụng không mất.
+
+### Sửa dấu cho chữ đã chốt (reconversion)
+
+Người dùng bôi đen một chữ — hoặc chỉ đặt con trỏ vào giữa nó — và đổi sang
+phương án khác, không phải gõ lại cả từ. Ứng dụng hỏi qua
+`ITfFunctionProvider::GetFunction(GUID_NULL, IID_ITfFnReconversion)`;
+`CTextService` trả về chính nó.
+
+- `QueryRange` tìm đúng đoạn sẽ đổi rồi trả về; chỉ nhận khi có **ít nhất
+  hai** phương án, để ứng dụng không hiện một mục chọn vô nghĩa.
+- `GetReconversion` trả về `ITfCandidateList` (danh sách + enumerator + từng
+  chuỗi, cài tay trong `Reconversion.cpp`) lấy từ `hodion::syllable_variants`.
+- `Reconvert` — dành cho ứng dụng không có giao diện chọn riêng — xoay sang
+  phương án kế tiếp; gọi lại nhiều lần thì đi hết vòng.
+
+Danh sách phương án do **engine** sinh (`engine/src/reconvert.cpp`), nên
+macOS/Linux dùng lại nguyên vẹn.
+
+**Ranh giới từ và chuyện đọc lại trước khi ghi.** Range là do ứng dụng cấp,
+còn ta tính toán trên một bản chụp văn bản. Ghi nhầm chỗ ở đây nghĩa là
+xóa/sửa chữ của người dùng, nên có ba lớp chặn:
+
+1. Đoạn bôi đen dài hơn một âm tiết (8 ký tự) bị từ chối thẳng — thay một
+   đoạn dài bằng một âm tiết là xóa mất văn bản.
+2. Sau khi dịch `ITfRange` để bao đúng từ, **đọc lại** đoạn đó và so với
+   chuỗi ta định lấy; lệch một ký tự là bỏ, không ghi gì.
+3. Lúc người dùng chọn (`SetResult`), **đọc lại lần nữa** và chỉ ghi khi văn
+   bản vẫn đúng như lúc dựng danh sách — họ có thể đã gõ tiếp trong lúc
+   danh sách đang mở.
+
+Phần dò ranh giới từ tách ra `WordScan.cpp` để test được mà không cần một
+ứng dụng TSF thật — nó là chỗ logic thuần và dễ sai nhất; số học trên
+`ITfRange` thì chỉ chạy thật mới kiểm được, nên mới có ba lớp chặn ở trên.
 
 ### Bật/tắt tiếng Việt và cấu hình
 
@@ -250,6 +285,40 @@ thể cấu hình Telex (17.467 × 4 lượt) mỗi lần chạy CI — không t
 VNI không cần tính năng này: phím dấu của VNI là chữ số nên không từ tiếng
 Anh nào bị biến dạng (đo trên cả 63.072 từ: đúng 0 từ). App cấu hình làm mờ
 tùy chọn khi chọn VNI.
+
+### Sinh phương án dấu (`engine/src/reconvert.cpp`)
+
+`syllable_variants("duong")` trả về mọi âm tiết tiếng Việt cùng chuỗi chữ
+cái gốc: dương, đường, duống, đuông…
+
+Cách sinh **không phải** duyệt bảng vần, mà **gõ thử**. Duyệt bảng cho ra cả
+những thứ bảng cho phép nhưng bộ luật gõ không bao giờ sinh ra — "gía" bên
+cạnh "giá", "quýen" bên cạnh "quyến", "dưong" bên cạnh "dương". Một danh
+sách chọn chứa chữ mà người dùng gõ tay không ra được là danh sách sai. Nên
+ta lấy chuỗi chữ cái gốc rồi cho chính engine gõ lại nó với mọi tổ hợp phím
+dấu (`a e o w`) và phím thanh (`s f r x j`), giữ lại đúng những gì engine
+cho ra: 16 × 6 = 96 lượt gõ, vài chục micro giây, và hợp đồng đúng **theo
+định nghĩa** chứ không theo lời hứa.
+
+Một ngoại lệ có lý do: **đ**. Engine cố ý bỏ kiểm chính tả cho từ có đ (luật
+UniKey để gõ viết tắt "đt", "đc"), nên gõ "ddoait" ra "đoait" mà không bị
+chặn. Lấy đường gõ làm nguồn thì danh sách sẽ đầy chữ như vậy. Nên đ được
+**suy ra**: sinh với `d` (được kiểm chính tả đầy đủ) rồi đổi `d` đầu từ
+thành `đ`. Đổi được vì luật ghép phụ âm đầu chỉ phân biệt k, gi, qu — với
+mọi vần, `đ` hợp lệ đúng ở chỗ `d` hợp lệ; và đ trong tiếng Việt chỉ đứng
+đầu âm tiết.
+
+Thứ tự: chữ đang có đứng đầu, rồi tới những chữ **khác nó ít nhất** (đếm số
+dấu phụ và dấu thanh lệch). Không xếp theo tần suất vì engine không có dữ
+liệu tần suất — và một thứ tự đoán mò còn tệ hơn một thứ tự học thuộc được.
+Xếp theo tần suất là việc của mô hình n-gram trong lộ trình.
+
+Hai tính chất được test kiểm trực tiếp:
+
+- **Đủ** — gõ ngẫu nhiên 12.000 chuỗi phím; mọi âm tiết engine cho ra được
+  đều phải nằm trong danh sách biến thể của chính nó.
+- **Đúng** — mọi biến thể cùng chuỗi chữ cái gốc với đầu vào, và sinh lại
+  từ bất kỳ biến thể nào cũng ra đúng cùng một họ.
 
 ### Cách lưu
 

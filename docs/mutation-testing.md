@@ -64,6 +64,27 @@ Nhân tiện cũng lộ ra một điểm yếu của chính engine: bộ giải 
 chuỗi hỏng thì nuốt luôn ký tự hợp lệ đứng ngay sau. Nay nó chỉ bỏ đúng
 phần hỏng rồi đọc tiếp.
 
+### Đợt gõ trộn Việt–Anh và reconversion
+
+Ba lỗ hổng nữa, cùng một kiểu — nhánh có thật mà không test nào phân biệt:
+
+- **Hai đầu bảng chữ cái.** Bộ lọc "chuỗi phím có phải một từ chữ cái
+  không" và bộ lọc chữ cái của reconversion đều kiểm `>= 'a' && <= 'z'`;
+  không test nào dùng từ chứa `a` hay `z` ở đúng chỗ biên, nên đổi `>=`
+  thành `>` không ai thấy. Nay có `cart`, `bozo`, `An`, `AN`.
+- **Chặn độ dài của chế độ gõ thẳng** lệch một ký tự so với đường ghép
+  bình thường mà không test nào bắt. Nay test so trực tiếp hai chặn với
+  nhau thay vì chỉ kiểm "có tự chốt không".
+- **Một đoạn code chết.** `syllable_variants` đẩy riêng chữ hiện tại lên
+  đầu bằng `std::rotate` — nhưng nó đã luôn ở đầu sau khi sắp xếp theo
+  khoảng cách (chỉ nó mới có khoảng cách 0). Mutant đổi `self + 1` thành
+  `self - 1` vẫn sống, và đó là dấu hiệu đoạn đó không làm gì. Đã bỏ.
+
+Viết test cho `reconvert.cpp` còn lộ ra một lỗi thật của tính năng: `z` là
+phím xoá thanh của Telex nên engine không coi "zan" là từ hỏng, và danh
+sách phương án vì thế đề xuất cả "zán", "zàn" — trong khi tiếng Việt không
+có chữ z. Nay bộ lọc chữ cái của reconversion loại thẳng f, j, w, z.
+
 ## Vì sao không đuổi tới 100%
 
 Số mutant còn sống chủ yếu thuộc ba nhóm **không thể giết bằng test**:
@@ -77,6 +98,27 @@ Số mutant còn sống chủ yếu thuộc ba nhóm **không thể giết bằn
 3. **Mutant chỉ gây lỗi bộ nhớ** — đổi biên vòng lặp hay chỉ số thành đọc/ghi
    lố mảng. Chương trình vẫn cho ra chuỗi đúng nên so sánh kết quả không
    thấy gì. Nhóm này đã xử lý được bằng `--asan` (xem dưới).
+
+`reconvert.cpp` là ví dụ rõ nhất của nhóm 1 và 2: điểm của riêng file này
+chỉ **66,7%**, nhưng cả 8 mutant còn sống đều chứng minh được là tương
+đương:
+
+- `word.size() >= 8` thay cho `> 8`: âm tiết dài nhất của tiếng Việt là
+  "nghiêng" (7 ký tự), nên không đầu vào nào phân biệt được hai vế.
+- Ba mutant ở chốt chặn đầu hàm (`||` → `&&`, `max_results == 0`): bỏ chốt
+  đi thì các bộ lọc phía sau vẫn cho ra đúng kết quả rỗng. Chốt chỉ để
+  thoát sớm cho đầu vào bất thường, không gánh phần đúng/sai.
+- `mask <= (1 << 4)` và `i <= kMarkCount`: vòng thừa có `mask` bằng 16, mà
+  16 không có bit nào trong 4 bit đầu, nên nó chạy y hệt `mask = 0` và bị
+  khử trùng; `kMarkKeys[4]` vì thế cũng không bao giờ bị đọc tới.
+- `i <= other.size()` trong hàm đo khoảng cách: `std::u32string::operator[]`
+  ở đúng vị trí `size()` là hợp lệ và trả về ký tự 0 — không phải đọc lố,
+  và ký tự 0 không đóng góp gì vào khoảng cách.
+- `out.size() >= max_results`: cắt khi vừa đúng bằng giới hạn là không cắt
+  gì cả.
+
+Đã thử chạy một trong số đó qua 9,4 triệu lượt fuzz để chắc chắn nó thật sự
+không đổi hành vi, chứ không phải bộ test yếu.
 
 ## Chạy kèm AddressSanitizer
 
@@ -110,15 +152,23 @@ làm phép kiểm tra yếu đi, mà bộ test thì không thể tự phát hi�
 ```sh
 cmake -S . -B build-cov -DCMAKE_BUILD_TYPE=Debug \
   -DCMAKE_CXX_FLAGS="--coverage -O0" -DCMAKE_EXE_LINKER_FLAGS="--coverage"
-cmake --build build-cov -j && ./build-cov/engine/hodion_engine_tests
-gcovr --root . --filter 'engine/src/' --filter 'engine/include/' --txt --branches
+cmake --build build-cov -j
+./build-cov/engine/hodion_engine_tests && ./build-cov/wordlist/hodion_wordlist_tests
+gcovr --root . --filter 'engine/src/' --filter 'engine/include/' \
+      --filter 'wordlist/src/' --txt --branches
 ```
 
-| Thước đo            | Trước | Sau   |
-|---------------------|-------|-------|
-| Dòng (line)         | 97%   | 99%   |
-| Nhánh (branch)      | 80%   | 81%   |
-| Mutation            | 73,0% | 83,4% |
+| Thước đo            | Ban đầu | Sau khi bịt lỗ hổng | Nay (kèm gõ trộn + reconversion) |
+|---------------------|---------|---------------------|----------------------------------|
+| Dòng (line)         | 97%     | 99%                 | 98%                              |
+| Nhánh (branch)      | 80%     | 81%                 | 81%                              |
+| Mutation            | 73,0%   | 83,4%               | xem bảng trên                    |
+
+Dòng tụt từ 99% xuống 98% không phải vì mất test: hai "dòng chưa chạy" mới
+đều là dấu `}` đóng hàm trong `reconvert.cpp` — gcov tính riêng khối dọn dẹp
+ngoại lệ mà chương trình không bao giờ đi vào (`strip_diacritics` chạy
+56.174 lần, dòng thân hàm phủ 100%, chỉ dấu `}` là `=====`). File nhỏ nên
+hai dòng đó đủ kéo tổng xuống 1%.
 
 Ba con số này nói ba chuyện khác nhau, và đó chính là lý do không nên nhìn
 mỗi coverage: **bộ test cũ đã phủ 97% số dòng nhưng mutation vẫn tìm ra 130

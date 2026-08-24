@@ -86,4 +86,22 @@ std::u32string from_utf8(const std::string& s) {
   return out;
 }
 
+std::u32string from_utf16(const std::u16string& s) {
+  std::u32string out;
+  out.reserve(s.size());
+  for (size_t i = 0; i < s.size(); ++i) {
+    const char32_t u = s[i];
+    if (u >= 0xD800 && u <= 0xDBFF) {  // nửa cao
+      if (i + 1 < s.size() && s[i + 1] >= 0xDC00 && s[i + 1] <= 0xDFFF) {
+        out.push_back(0x10000 + ((u - 0xD800) << 10) + (s[i + 1] - 0xDC00));
+        ++i;
+      }
+      continue;  // nửa cao cụt → bỏ
+    }
+    if (u >= 0xDC00 && u <= 0xDFFF) continue;  // nửa thấp lạc → bỏ
+    out.push_back(u);
+  }
+  return out;
+}
+
 }  // namespace hodion::utf

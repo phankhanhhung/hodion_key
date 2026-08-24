@@ -18,6 +18,7 @@ constexpr LANGID kHodionLangId = MAKELANGID(LANG_VIETNAMESE, SUBLANG_DEFAULT);
 
 constexpr WCHAR kServiceDescription[] = L"HodionKey";
 constexpr WCHAR kToggleKeyDescription[] = L"HodionKey: bat/tat tieng Viet";
+constexpr WCHAR kReconversionName[] = L"HodionKey: chon lai dau";
 
 // ---- Trạng thái module ----------------------------------------------------
 extern HINSTANCE g_hInst;
