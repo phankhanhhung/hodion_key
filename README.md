@@ -28,7 +28,7 @@ platform/windows/src      TSF text service (COM DLL, không ATL/WRL)
 platform/windows/config   App cấu hình (hộp thoại Win32 thuần)
 platform/windows/tests    Kiểm thử tầng Windows (registry, watcher)
 platform/windows/dist     Script cài/gỡ + hướng dẫn cho gói phát hành
-docs/                     Kiến trúc, đặc tả bộ luật UniKey, mutation testing
+docs/                     Kiến trúc, bộ luật UniKey, mutation testing, lộ trình
 tools/                    Công cụ dev (mutation testing)
 cmake/                    Toolchain cross-compile MinGW (CI trên Linux)
 ```
@@ -169,6 +169,13 @@ phím đó khi gõ, nên giá trị hỏng sẽ tự quay về mặc định.
 - [x] Bộ luật Telex/VNI tương thích UniKey (spell-check, gõ dấu tự do,
       khôi phục từ không phải tiếng Việt, `[ ]`, họ vần uo…)
 - [x] Phím chuyển Việt/Anh + app cấu hình (áp dụng tức thì)
+- [ ] Gõ trộn Việt–Anh: tự tắt theo input scope, quyết định theo từ lúc chốt
+- [ ] Tự thêm dấu cho chữ không dấu (n-gram + Viterbi, tiến trình riêng)
+- [ ] Reconversion — sửa từ đã chốt không phải gõ lại
 - [ ] Port macOS (IMKit) và Linux (fcitx5) trên cùng engine
 - [ ] Gõ tắt (macro) người dùng định nghĩa, VIQR
 - [ ] Chỉ báo trạng thái trên thanh ngôn ngữ / khay hệ thống
+
+Thiết kế và lý do của các mục chưa làm — kể cả những thứ **quyết định
+không làm** (picker trong luồng gõ, tự sửa chính tả theo từ điển) — ở
+[docs/roadmap-smart-input.md](docs/roadmap-smart-input.md).
