@@ -64,19 +64,41 @@ jobs:
       - name: Đối chiếu với bảng đang có trong repo
         run: |
           python3 - <<'PY'
+          import os
+
           def load(p):
               return {l.strip() for l in open(p, encoding="utf-8")
                       if l.strip() and not l.startswith("#")}
+
           new = load("viet-syllables.txt")
           old = load("wordlist/data/viet-syllables.txt")
-          same = len(new & old)
-          pct = 100.0 * same / len(old)
-          print("bảng mới %d mục, bảng trong repo %d mục, trùng %d (%.1f%%)"
-                % (len(new), len(old), same, pct))
-          # Bãi đổ Wikipedia đổi theo thời gian nên không đòi trùng khít.
-          # Lệch quá nhiều thì là chuỗi dựng hỏng, không phải kho đổi.
-          if pct < 80.0:
-              raise SystemExit("::error::lệch quá nhiều so với bảng trong repo")
+          novel = new - old
+          missing = old - new
+          print("bảng mới %d mục, bảng trong repo %d mục" % (len(new), len(old)))
+          print("  có trong bảng mới mà bảng cũ không có: %d (%.1f%%)"
+                % (len(novel), 100.0 * len(novel) / len(new)))
+          print("  có trong bảng cũ mà bảng mới không có: %d" % len(missing))
+          if novel:
+              print("  ví dụ mục mới:", ", ".join(sorted(novel)[:15]))
+
+          # Chỉ chấm theo MỘT chiều, và đó là chỗ dễ đặt sai.
+          #
+          # "Bảng mới phủ được bao nhiêu phần bảng cũ" KHÔNG dùng làm ngưỡng
+          # được: nó tụt theo cỡ kho văn bản, mà cỡ kho thì người chạy tự
+          # chọn. Kho 40 MB cho 4.689 mục — nằm gọn trong bảng cũ, chuỗi
+          # dựng hoàn toàn lành, mà chiều đó chỉ đạt 66%.
+          #
+          # Chiều ngược lại mới là tín hiệu thật: mục LẠ mà bảng cũ chưa
+          # từng có. Kho lớn hơn hay bãi đổ mới thì có thêm vài mục là
+          # thường; nhiều mục lạ nghĩa là lớp lọc đã hỏng và rác đang lọt.
+          share = 100.0 * len(novel) / len(new)
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as f:
+              f.write("### Bảng âm tiết\n\n")
+              f.write("- mới: %d mục, trong repo: %d mục\n" % (len(new), len(old)))
+              f.write("- mục lạ so với repo: %d (%.1f%%)\n\n" % (len(novel), share))
+          if share > 15.0:
+              raise SystemExit(
+                  "::error::quá nhiều mục lạ (%.1f%%) — lớp lọc có vấn đề" % share)
           PY
 
       - name: Train mô hình

@@ -76,7 +76,10 @@ def main():
                 para = para.strip()
                 if len(para) > 40:
                     out.write(para + "\n")
-                    written += len(para) + 1
+                    # Đếm BYTE chứ không đếm ký tự: tiếng Việt có dấu
+                    # tốn ~1,3 byte/ký tự, đếm nhầm là ra file to hơn
+                    # người ta xin gần 30%.
+                    written += len(para.encode("utf-8")) + 1
             if written >= LIMIT:
                 break
         else:
