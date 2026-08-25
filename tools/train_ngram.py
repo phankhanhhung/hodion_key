@@ -13,12 +13,31 @@ docs/roadmap-smart-input.md mục 3. Tóm tắt — tỉ lệ giá trị trên c
 mắt, và khoảng cách 94% → 97% không đáng đánh đổi lấy cả chuỗi phụ thuộc
 của một runtime neural trong một bộ gõ.
 
-⚠ GIẤY PHÉP — file sinh ra KHÔNG được commit vào repo
+HAI CỠ, VÀ CON SỐ ĐỂ CHỌN
 
-Cùng lý do với bảng âm tiết (xem tools/build_syllables.py): dữ liệu huấn
-luyện có giấy phép riêng. Wikipedia tiếng Việt là CC BY-SA. Bạn train và
-dùng trên máy mình thì không phát hành lại gì cả. Nếu muốn PHÁT HÀNH kèm
-mô hình thì phải xem lại giấy phép của kho văn bản đã dùng.
+    --preset full    ~46 MB   (mặc định)
+    --preset small   ~13 MB
+
+Cắt bớt bằng cách bỏ những n-gram hiếm (min-bigram 4, min-trigram 12).
+Đo trên 619.724 âm tiết ngoài dữ liệu train, cùng một bảng âm tiết:
+
+    preset   cỡ       có đổi   đúng khi đổi   đúng chung   Viterbi
+    full     46,3 MB  54,0%    96,6%          63,8%        95,1%
+    small    12,6 MB  52,8%    96,3%          62,6%        94,2%
+
+Nhỏ đi 3,7 lần mà chỉ mất 0,3 điểm ở con số quan trọng nhất (đúng khi ra
+tay). Với một file phải tải về và nằm thường trú trong RAM thì đó là món
+hời — nên "small" mới là bản nên phát hành, "full" để cho ai có sẵn chỗ.
+
+GIẤY PHÉP
+
+Mô hình sinh từ Wikipedia tiếng Việt (CC BY-SA) nên nó cũng CC BY-SA:
+phát hành lại được, miễn ghi nguồn và giữ nguyên giấy phép. Xem
+wordlist/data/GIAY-PHEP-DU-LIEU.txt.
+
+File không nằm trong repo, nhưng vì kỹ thuật chứ không phải vì giấy phép:
+một khối nhị phân mấy chục MB đổi trọn gói mỗi lần train thì không thuộc
+về git.
 
 Khuôn dạng file (little-endian):
 
@@ -165,13 +184,22 @@ def main():
     ap.add_argument("--scan", required=True,
                     help="đường dẫn hodion_wordscan (lọc âm tiết thật)")
     ap.add_argument("--out", required=True)
+    ap.add_argument("--preset", choices=("full", "small"), default="full",
+                    help="full = đầy đủ (~46 MB); small = cắt bớt (~13 MB)")
     ap.add_argument("--min-unigram", type=int, default=3)
-    ap.add_argument("--min-bigram", type=int, default=2)
-    ap.add_argument("--min-trigram", type=int, default=2)
+    ap.add_argument("--min-bigram", type=int, default=None)
+    ap.add_argument("--min-trigram", type=int, default=None)
     ap.add_argument("--min-sentence", type=int, default=3)
     ap.add_argument("--limit-bytes", type=int, default=0,
                     help="chỉ đọc ngần này byte đầu của kho văn bản")
     args = ap.parse_args()
+
+    # Ngưỡng của preset "small" là đo ra: xem chú thích đầu file.
+    defaults = {"full": (2, 2), "small": (4, 12)}[args.preset]
+    if args.min_bigram is None:
+        args.min_bigram = defaults[0]
+    if args.min_trigram is None:
+        args.min_trigram = defaults[1]
 
     tokens_path = args.out + ".tokens"
     seen, sentences = tokenize_pass(args.corpus, tokens_path,

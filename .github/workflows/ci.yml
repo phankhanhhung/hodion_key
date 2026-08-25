@@ -190,6 +190,7 @@ jobs:
           Copy-Item platform/windows/dist/GoCaiDat.ps1 pkg/
           Copy-Item platform/windows/dist/GoCaiDat.bat pkg/
           Copy-Item platform/windows/dist/DOC-TRUOC-KHI-CAI.txt pkg/
+          Copy-Item wordlist/data/viet-syllables.txt pkg/
           Get-ChildItem pkg -Recurse | Select-Object FullName, Length
       - name: Cài, soi registry, gỡ
         shell: pwsh
@@ -234,6 +235,10 @@ jobs:
           cp platform/windows/dist/DOC-TRUOC-KHI-CAI.txt pkg/
           # Giấy phép SCOWL yêu cầu thông báo đi kèm mọi bản phát hành.
           cp wordlist/data/SCOWL-COPYRIGHT.txt pkg/GIAY-PHEP-TU-DIEN.txt
+          # Bảng âm tiết + ghi nguồn CC BY-SA của nó. Bộ cài chép bảng vào
+          # thư mục gốc bản cài, dùng chung cho cả x64 lẫn x86.
+          cp wordlist/data/viet-syllables.txt pkg/
+          cp wordlist/data/GIAY-PHEP-DU-LIEU.txt pkg/
 
           sed -i "s|@VERSION@|${version}|" pkg/DOC-TRUOC-KHI-CAI.txt
           sed -i "s|@COMMIT@|${GITHUB_SHA} (${GITHUB_REF_NAME})|" pkg/DOC-TRUOC-KHI-CAI.txt
@@ -245,7 +250,8 @@ jobs:
           for f in x64/HodionKey.dll x64/HodionKeyConfig.exe \
                    x86/HodionKey.dll x86/HodionKeyConfig.exe \
                    CaiDat.bat CaiDat.ps1 GoCaiDat.bat GoCaiDat.ps1 \
-                   DOC-TRUOC-KHI-CAI.txt GIAY-PHEP-TU-DIEN.txt; do
+                   DOC-TRUOC-KHI-CAI.txt GIAY-PHEP-TU-DIEN.txt \
+                   viet-syllables.txt GIAY-PHEP-DU-LIEU.txt; do
             if [ ! -s "pkg/$f" ]; then echo "::error::thiếu hoặc rỗng: $f"; missing=1; fi
           done
           if grep -q '@VERSION@\|@COMMIT@\|@BUILD@' pkg/DOC-TRUOC-KHI-CAI.txt; then

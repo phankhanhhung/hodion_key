@@ -124,16 +124,24 @@ gõ thật ở đâu.
 
 ĐOÁN DẤU CHO CHỮ KHÔNG DẤU
 --------------------------
-Tính năng này cần hai file dữ liệu đặt cạnh HodionKeyConfig.exe:
-  viet-syllables.txt   bảng âm tiết
-  viet-ngram.bin       mô hình 3-gram (~46 MB)
-Chúng KHÔNG nằm trong gói này vì giấy phép của nguồn dữ liệu (từ điển
-âm tiết là GPL-2, kho văn bản là CC BY-SA). Xem tools/build_syllables.py
-và tools/train_ngram.py trong mã nguồn để tự sinh.
+Bảng âm tiết (viet-syllables.txt) CÓ trong gói này, bộ cài đặt sẵn vào
+thư mục cài. Nhờ nó, ngay sau khi cài:
+  - chữ chỉ có MỘT cách viết được thêm dấu chắc chắn
+    (gõ nguyet -> nguyệt, thuo -> thuở)
+  - phím Ctrl+Shift+Space xếp chữ CÓ THẬT lên trước chữ chỉ đúng cấu trúc
 
-Thiếu hai file đó thì mọi thứ khác vẫn chạy y nguyên: chỉ mất phần tự
-thêm dấu, còn phím xoay dấu vẫn xoay được (chỉ là không xếp theo ngữ
-cảnh).
+Phần đoán theo NGỮ CẢNH cần thêm mô hình 3-gram (viet-ngram.bin, ~46 MB).
+File này không đi kèm vì nó quá lớn cho một gói cài. Tự train:
+
+    python3 tools/train_ngram.py --corpus vi.txt         --scan build/engine/hodion_wordscan --out viet-ngram.bin
+
+rồi chép vào thư mục cài (C:\Program Files\HodionKey), NGANG HÀNG với
+x64\ và x86\ chứ không phải bên trong. Bật lại tiến trình nền là xong.
+
+Thiếu mô hình thì mọi thứ khác vẫn chạy y nguyên.
+
+Bảng âm tiết sinh từ Wikipedia tiếng Việt, giấy phép CC BY-SA — ghi nguồn
+đầy đủ ở GIAY-PHEP-DU-LIEU.txt trong gói.
 
 BÁO LỖI
 -------

@@ -7,6 +7,8 @@
 // trong các kiểu hỏng. Bảng do script sinh ra, nên phải kiểm lại ở đây
 // trên TỪNG từ chứ không tin script.
 #include <algorithm>
+#include <fstream>
+#include <sstream>
 #include <cstddef>
 #include <cstdio>
 #include <cstring>
@@ -669,6 +671,59 @@ int main() {
       Check(same == odd, "chữ không đoán được thì giữ nguyên");
     }
   }
+
+  // ======================================================================
+  // Bảng âm tiết ĐƯỢC PHÁT HÀNH kèm bản cài
+  // ======================================================================
+  //
+  // Nó là một artifact, không phải file tạm của ai đó: bộ cài chép nó vào
+  // máy người dùng, và phần đoán dấu tin nó là "chữ này có thật". Nên nó
+  // phải được kiểm như mọi thứ khác — nhất là tính chất mà công cụ sinh ra
+  // nó tự nhận: MỌI mục đều là chữ engine gõ ra được.
+#ifdef HODION_SYLLABLE_TABLE
+  {
+    std::ifstream file(HODION_SYLLABLE_TABLE, std::ios::binary);
+    if (!file) {
+      std::printf("  (bỏ qua bảng âm tiết: không mở được %s)\n",
+                  HODION_SYLLABLE_TABLE);
+    } else {
+      std::ostringstream buffer;
+      buffer << file.rdbuf();
+      hodion::SyllableList table;
+      Check(table.load(buffer.str()), "nạp được bảng âm tiết phát hành kèm");
+      Check(table.size() > 5000 && table.size() < 20000,
+            "cỡ bảng nằm trong khoảng hợp lý");
+      for (const char* w : {"nguyệt", "đường", "tối", "quá", "thuở", "việt"}) {
+        Check(table.contains(U(w)), "bảng có chữ thông dụng");
+      }
+      // f/j/w/z không có trong tiếng Việt; lọt vào bảng là hỏng nguồn.
+      for (const char* w : {"zan", "final", "web", "just"}) {
+        Check(!table.contains(U(w)), "bảng không chứa chữ ngoại lai");
+      }
+
+      // Tính chất chính: mọi mục đều gõ tay ra được. Sai ở đây nghĩa là
+      // bảng và bộ luật gõ đã lệch nhau — bảng sẽ khen là "có thật" những
+      // chữ mà người dùng không bao giờ gõ ra.
+      hodion::Config cfg;
+      int unreachable = 0;
+      std::u32string worst;
+      for (const std::u32string& syllable : table.items()) {
+        const auto variants = hodion::syllable_variants(
+            hodion::strip_diacritics(syllable), cfg, 128);
+        if (std::find(variants.begin(), variants.end(), syllable) ==
+            variants.end()) {
+          if (unreachable == 0) worst = syllable;
+          ++unreachable;
+        }
+      }
+      Check(unreachable == 0, "mọi âm tiết trong bảng đều gõ tay ra được");
+      if (unreachable > 0) {
+        std::printf("    %d mục không gõ ra được, ví dụ \"%s\"\n", unreachable,
+                    S(worst).c_str());
+      }
+    }
+  }
+#endif
 
   std::printf("wordlist_test: %d từ, %d checks, %d failures\n",
               static_cast<int>(words.size()), g_checks, g_failures);

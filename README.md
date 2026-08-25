@@ -370,37 +370,61 @@ OK trong hộp thoại, hoặc chọn trong menu khay), nên khởi động lạ
 nguyên. Test kiểm **mọi trường** đều sống qua một vòng ghi/đọc, để không ai
 thêm tuỳ chọn mới mà quên lưu.
 
-### Dữ liệu ngôn ngữ không nằm trong repo
+### Dữ liệu ngôn ngữ
 
-Tính năng này cần hai file, và cả hai **cố ý không được commit** — vì giấy
-phép của nguồn dữ liệu, không phải vì kỹ thuật. Từ điển chính tả tiếng Việt
-sẵn có (`hunspell-vi` của LibreOffice) là **GPL-2**; Wikipedia tiếng Việt là
-**CC BY-SA**. Đưa dữ liệu dẫn xuất vào đây là ràng cả dự án vào giấy phép
-đó, và đó là quyết định của chủ dự án chứ không phải của một script. Tự sinh
-trên máy mình rồi dùng thì không phát hành lại gì cả.
+Hai file, và chúng khác nhau ở chỗ **có đi kèm bản cài hay không**:
+
+| file | cỡ | trong gói? |
+|---|---|---|
+| `viet-syllables.txt` — bảng âm tiết có thật | 44 KB | **có** |
+| `viet-ngram.bin` — mô hình 3-gram | ~46 MB | không, tự train |
+
+**Bảng âm tiết ban đầu không đi kèm được, và sửa chuyện đó là việc đáng
+làm nhất của tính năng này.** Bản đầu lấy từ từ điển chính tả `hunspell-vi`
+của LibreOffice — mà nó là **GPL-2**, nên bảng dẫn xuất cũng phải GPL-2, nên
+không phát hành kèm được, nên đoán dấu **không đến tay ai**. Một tính năng
+không giao được thì coi như chưa làm.
+
+Nay bảng sinh từ hai thứ đều dùng lại được: kho văn bản Wikipedia tiếng Việt
+(CC BY-SA, ghi nguồn ở `wordlist/data/GIAY-PHEP-DU-LIEU.txt`) lọc qua **chính
+bộ luật gõ của engine**. Ba lớp lọc — cắt âm tiết, engine gõ ra được, đủ
+ngưỡng tần suất — và lớp thứ hai là lớp gánh việc: nó giết cả chữ Latin của
+ngôn ngữ khác (`internet`, `quantum`) lẫn lỗi đánh máy sai vị trí dấu (`qúa`
+cạnh `quá`), vì engine không bao giờ sinh ra chúng.
+
+Bảng mới **không phải bản thay thế kém hơn**. Đo trên 619.724 âm tiết ngoài
+dữ liệu train:
+
+| bảng | cỡ | đúng khi đổi | Viterbi cả câu |
+|---|---|---|---|
+| cũ (hunspell, GPL-2) | 6.502 | 96,5% | 94,8% |
+| mới (kho văn bản + engine) | 7.066 | **96,6%** | **95,1%** |
+
+Chỉ có bảng, chưa có mô hình, thì đã dùng được ngay: chữ **chỉ có một cách
+viết** được thêm dấu chắc chắn, và **phím xoay dấu xếp chữ có thật lên
+trước** chữ chỉ đúng cấu trúc. Mô hình thêm phần đoán theo ngữ cảnh.
+
+Mô hình 46 MB không nằm trong repo — không phải vì giấy phép (nó cũng
+CC BY-SA, phát hành lại được) mà vì một khối nhị phân mấy chục MB đổi trọn
+gói mỗi lần train thì không thuộc về git. Tự train:
 
 ```sh
 cmake --build build --target hodion_wordscan
 
-# 1. Bảng âm tiết có thật (~6.500 mục, 100 KB)
-sudo apt-get install hunspell-vi
-python3 tools/build_syllables.py \
-    --dic  /usr/share/hunspell/vi_VN.dic \
-    --scan build/engine/hodion_wordscan \
-    --out  viet-syllables.txt
-
-# 2. Mô hình 3-gram (~46 MB) — cần một kho văn bản tiếng Việt có dấu
 python3 tools/train_ngram.py \
     --corpus vi.txt \
     --scan   build/engine/hodion_wordscan \
     --out    viet-ngram.bin
 ```
 
-Đặt cả hai cạnh `HodionKeyConfig.exe`. Thiếu bảng âm tiết thì mục menu bị
-làm mờ kèm lý do; có bảng mà thiếu mô hình thì vẫn đoán được những chữ chỉ
-có một cách viết. Mô hình dùng cho bản đo ở trên train từ 250 MB Wikipedia
-tiếng Việt: 7.137 âm tiết trong từ vựng, 3,39 triệu trigram, nạp mất 119 ms
-và mỗi lần hỏi tốn 108 µs.
+Rồi đặt nó vào thư mục gốc bản cài (cạnh `x64\` và `x86\`, không phải bên
+trong). Bộ gõ tìm cạnh exe trước rồi mới tới thư mục cha, nên một bản dùng
+chung cho cả hai kiến trúc. Dựng lại bảng âm tiết cũng từ chính kho văn bản
+đó: `python3 tools/build_syllables.py --corpus vi.txt --scan … --out …`
+
+Mô hình dùng cho bản đo ở trên train từ 250 MB Wikipedia tiếng Việt: 7.137
+âm tiết trong từ vựng, 3,39 triệu trigram, nạp mất 119 ms và mỗi lần hỏi tốn
+108 µs.
 
 ## Cấu hình
 

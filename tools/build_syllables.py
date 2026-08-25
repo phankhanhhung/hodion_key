@@ -1,116 +1,122 @@
 #!/usr/bin/env python3
 """Dựng bảng âm tiết tiếng Việt CÓ THẬT cho phần đoán dấu.
 
-    apt-get install hunspell-vi        (hoặc lấy .dic tương đương)
     cmake --build build --target hodion_wordscan
-    python3 tools/build_syllables.py \
-        --dic  /usr/share/hunspell/vi_VN.dic \
+    python3 tools/build_syllables.py --corpus vi.txt \
         --scan build/engine/hodion_wordscan \
-        --out  viet-syllables.txt
-
-Rồi đặt viet-syllables.txt CẠNH HodionKeyConfig.exe.
-
-⚠ GIẤY PHÉP — đọc trước khi dùng
-
-File sinh ra KHÔNG được commit vào repo này, và đó là chủ ý. Từ điển chính
-tả tiếng Việt của LibreOffice (gói hunspell-vi) mang giấy phép **GPL-2**
-(mục `dictionaries/vi/*` trong file copyright — dòng MPL-2.0 ở đầu là cho
-các từ điển khác). Đưa dữ liệu dẫn xuất từ nó vào mã nguồn sẽ kéo GPL-2 lên
-cả dự án, và đó là quyết định của chủ dự án chứ không phải của script này.
-
-Bạn tự sinh file trên máy mình thì không phát hành lại gì cả, nên không có
-vấn đề gì. Nếu muốn PHÁT HÀNH kèm bảng này thì phải hoặc chấp nhận GPL-2,
-hoặc tìm một nguồn từ vựng có giấy phép cho phép.
-
-Không có file thì phần đoán dấu đơn giản là không bật được; mọi thứ còn lại
-của bộ gõ chạy như thường.
+        --out platform/windows/data/viet-syllables.txt
 
 Khác nhau giữa "hợp lệ về cấu trúc" và "có thật" là điểm của cả bảng này.
 Engine biết "duông" ghép đúng luật âm tiết, nhưng không biết nó có phải một
 chữ người ta dùng hay không — đó là kiến thức từ vựng, không suy ra được từ
 bảng vần. Bảng này mang đúng phần kiến thức đó.
 
-Hai lớp lọc:
+NGUỒN: KHO VĂN BẢN, KHÔNG PHẢI TỪ ĐIỂN — và đó là chuyện giấy phép
 
-1. Chỉ lấy mục là MỘT âm tiết thường, toàn chữ cái tiếng Việt.
-2. Bỏ mục nào chính engine không sinh ra được — từ điển chính tả có sẵn
-   những dạng engine không bao giờ gõ ra, giữ lại chỉ làm hai bên lệch nhau.
+Bản trước lấy từ từ điển chính tả hunspell-vi, mà nó là **GPL-2**: đưa dữ
+liệu dẫn xuất vào đây sẽ kéo GPL-2 lên cả dự án, nên bảng không phát hành
+kèm được, nên tính năng đoán dấu không đến tay ai. Một tính năng không giao
+được thì coi như chưa làm.
+
+Nay bảng sinh từ hai thứ đều dùng lại được: kho văn bản (Wikipedia tiếng
+Việt, CC BY-SA) và chính bộ luật gõ của engine. Kết quả phát hành kèm được
+dưới CC BY-SA — xem platform/windows/data/GIAY-PHEP-DU-LIEU.txt.
+
+Ba lớp lọc, mỗi lớp bỏ một loại rác khác nhau:
+
+1. **Cắt âm tiết** — chỉ giữ token toàn chữ cái tiếng Việt.
+2. **Engine gõ ra được** — kho văn bản đầy chữ Latin không dấu của ngôn ngữ
+   khác ("internet", "quantum") mà chỉ gồm chữ có trong bảng chữ tiếng
+   Việt, regex không phân biệt được. Lọc này cũng giết luôn lỗi đánh máy
+   sai vị trí dấu ("qúa" cạnh "quá") vì engine không bao giờ sinh ra chúng.
+3. **Ngưỡng tần suất** — cái gì xuất hiện vài lần trong nửa tỉ ký tự thì
+   nhiều khả năng là lỗi đánh máy vừa vặn hợp lệ, không phải từ.
+
+Mặc định ngưỡng 5 là đo ra chứ không chọn bừa. Trên 619.724 âm tiết ngoài
+dữ liệu train, so với chính bảng cũ dẫn xuất từ hunspell:
+
+    ngưỡng   cỡ bảng   đúng khi đổi   Viterbi cả câu
+    (cũ)     6.502     96,5%          94,8%
+    2        8.506     96,4%          94,5%
+    5        7.066     96,6%          95,1%
+
+Ngưỡng 5 hơn bảng cũ ở cả hai con số, mà lại chấm điểm được nhiều chỗ hơn
+(619.724 so với 615.578 âm tiết) — tức là nó biết nhiều từ có thật hơn.
+
+Dùng lại nguyên phần cắt âm tiết của train_ngram.py chứ không chép sang:
+hai bảng phải nhìn kho văn bản theo ĐÚNG một cách, lệch nhau là mô hình
+chấm điểm cho những chữ mà bảng bảo không tồn tại.
 """
 import argparse
-import re
-import subprocess
+import collections
 import sys
-import unicodedata
+import os
 
-VN_LETTERS = re.compile(
-    r"^[a-zàáâãèéêìíòóôõùúýăđĩũơưạảấầẩẫậắằẳẵặẹẻẽếềểễệỉịọỏốồổỗộớờởỡợụủứừửữựỳỵỷỹ]+$")
-
-
-def strip_diacritics(s):
-    s = s.replace("đ", "d")
-    return "".join(c for c in unicodedata.normalize("NFD", s)
-                   if unicodedata.category(c) != "Mn")
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import train_ngram  # noqa: E402
 
 
-def load(path):
-    out = set()
-    with open(path, encoding="utf-8", errors="ignore") as f:
-        next(f, None)  # dòng đầu của .dic là số lượng mục
-        for line in f:
-            word = line.strip().split("/")[0].strip()
-            if word and VN_LETTERS.match(word):
-                out.add(word)
-    return sorted(out)
+def count_tokens(corpus_path, limit_bytes):
+    counts = collections.Counter()
+    read = 0
+    with open(corpus_path, encoding="utf-8", errors="ignore") as src:
+        for line in src:
+            read += len(line)
+            if limit_bytes and read > limit_bytes:
+                break
+            for sentence in train_ngram.syllables(line):
+                counts.update(sentence)
+    return counts
 
 
-def keep_engine_reachable(scan_bin, words):
-    """Giữ lại những âm tiết chính engine sinh ra được."""
-    bares = sorted({strip_diacritics(w) for w in words})
-    proc = subprocess.run([scan_bin, "--variants"], input="\n".join(bares) + "\n",
-                          capture_output=True, text=True, check=True)
-    reachable = set()
-    for line in proc.stdout.splitlines():
-        parts = line.split("\t")
-        reachable.update(parts[1:])
-    return [w for w in words if w in reachable]
-
-
-def emit(path, words, dropped):
+def emit(path, words, stats):
     """Một âm tiết mỗi dòng, UTF-8. Cố ý là file văn bản thường: đổi bảng
-    không phải dịch lại gì, và sau này thay bằng mô hình tốt hơn cũng vậy."""
+    không phải dịch lại gì, và ai cũng mở ra xem được nó chứa gì."""
     lines = [
         "# Bảng âm tiết tiếng Việt cho HodionKey — SINH TỰ ĐỘNG.",
         "# Dựng lại: python3 tools/build_syllables.py (xem chú thích ở đó).",
         "#",
-        "# Nguồn: từ điển chính tả tiếng Việt của LibreOffice (hunspell-vi),",
-        "# giấy phép GPL-2. File này KHÔNG nằm trong mã nguồn HodionKey —",
-        "# nếu bạn phát hành lại nó thì phải theo GPL-2.",
+        "# Nguồn: Wikipedia tiếng Việt (CC BY-SA) lọc qua bộ luật gõ của",
+        "# engine. Giấy phép và ghi nguồn: GIAY-PHEP-DU-LIEU.txt cạnh file này.",
         "#",
-        "#   %d âm tiết; đã bỏ %d mục engine không sinh ra được" %
-        (len(words), dropped),
+        "#   %d âm tiết" % len(words),
+        "#   token khác nhau trong kho: %d" % stats["seen"],
+        "#   engine gõ ra được:         %d" % stats["valid"],
+        "#   đủ ngưỡng %d lần:%s%d" % (stats["min_count"],
+                                       " " * (11 - len(str(stats["min_count"]))),
+                                       len(words)),
         "",
     ]
-    lines.extend(sorted(words))
+    lines.extend(words)
     with open(path, "w", encoding="utf-8") as f:
         f.write("\n".join(lines) + "\n")
 
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--dic", required=True)
-    ap.add_argument("--scan", required=True)
+    ap.add_argument("--corpus", required=True)
+    ap.add_argument("--scan", required=True,
+                    help="đường dẫn hodion_wordscan (lọc bằng bộ luật gõ)")
     ap.add_argument("--out", required=True)
+    ap.add_argument("--min-count", type=int, default=5,
+                    help="số lần tối thiểu trong kho văn bản (mặc định 5)")
+    ap.add_argument("--limit-bytes", type=int, default=0)
     args = ap.parse_args()
 
-    words = load(args.dic)
-    print("âm tiết thường trong từ điển: %d" % len(words))
-    kept = keep_engine_reachable(args.scan, words)
-    dropped = len(words) - len(kept)
-    print("  bỏ %d mục engine không sinh ra được" % dropped)
-    print("  vào bảng: %d" % len(kept))
-    if not kept:
-        sys.exit("không còn mục nào — kiểm tra lại đường dẫn từ điển")
-    emit(args.out, kept, dropped)
+    counts = count_tokens(args.corpus, args.limit_bytes)
+    print("token khác nhau: %d" % len(counts))
+
+    valid = train_ngram.valid_syllables(args.scan, set(counts))
+    in_corpus = [w for w in counts if w in valid]
+    print("  engine gõ ra được: %d" % len(in_corpus))
+
+    words = sorted(w for w in in_corpus if counts[w] >= args.min_count)
+    print("  đủ ngưỡng %d lần:  %d" % (args.min_count, len(words)))
+    if not words:
+        sys.exit("không còn mục nào — kiểm tra lại kho văn bản")
+
+    emit(args.out, words, {"seen": len(counts), "valid": len(in_corpus),
+                           "min_count": args.min_count})
     print("đã ghi %s" % args.out)
 
 

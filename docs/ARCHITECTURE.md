@@ -576,24 +576,49 @@ Test kiểm hai tính chất của phần đoán trên từng âm tiết: thứ 
 **có thật**, và phải đúng là chữ vừa gõ đã thêm dấu chứ không phải một chữ
 khác. Vi phạm cái thứ hai nghĩa là bộ gõ tự ý thay từ của người dùng.
 
-### Dữ liệu ngôn ngữ: nạp lúc chạy, không nằm trong mã nguồn
+### Dữ liệu ngôn ngữ: nạp lúc chạy, sinh lại được từ đầu
 
-Khác hẳn bảng tiếng Anh, và vì lý do **giấy phép** chứ không phải kỹ thuật:
+Hai file rời, `viet-syllables.txt` và `viet-ngram.bin`, nạp lúc chạy chứ
+không biên dịch vào exe — đổi bảng hay đổi mô hình không phải dịch lại gì.
 
-- Từ điển chính tả tiếng Việt (`hunspell-vi` của LibreOffice) là **GPL-2** —
-  mục `dictionaries/vi/*` trong file copyright; dòng MPL-2.0 ở đầu file là
-  cho các từ điển khác.
-- Kho văn bản để train mô hình (Wikipedia tiếng Việt) là **CC BY-SA**.
+**Một quyết định giấy phép đã phải làm lại.** Bảng âm tiết bản đầu dẫn xuất
+từ từ điển chính tả `hunspell-vi` của LibreOffice, mà nó là GPL-2 (mục
+`dictionaries/vi/*`; dòng MPL-2.0 ở đầu file copyright là cho từ điển khác).
+Bảng dẫn xuất vì thế cũng phải GPL-2, nên không phát hành kèm được, nên
+**phần đoán dấu không đến tay một người dùng nào**. Một tính năng không giao
+được thì bằng chưa làm — đó là cái giá thật của lựa chọn nguồn dữ liệu, và
+nó không hiện ra cho tới lúc đóng gói.
 
-Đưa dữ liệu dẫn xuất từ hai nguồn đó vào mã nguồn là ràng cả dự án vào giấy
-phép của chúng, và đó là quyết định của chủ dự án chứ không phải của một
-script. Nên cả hai là file rời đặt cạnh exe (`viet-syllables.txt`,
-`viet-ngram.bin`), sinh bằng `tools/build_syllables.py` và
-`tools/train_ngram.py`.
+Nay bảng sinh từ kho văn bản (Wikipedia tiếng Việt, CC BY-SA) lọc qua **chính
+bộ luật gõ của engine**, không dính hunspell nữa. Ba lớp lọc — cắt âm tiết,
+engine gõ ra được, đủ ngưỡng tần suất — và lớp giữa gánh phần nặng: nó giết
+cả chữ Latin của ngôn ngữ khác lẫn lỗi đánh máy sai vị trí dấu, vì engine
+không bao giờ sinh ra chúng. Bảng mới còn **tốt hơn** bảng cũ: 96,6% so với
+96,5% đúng khi mô hình ra tay, 95,1% so với 94,8% ở Viterbi.
+
+Bảng 44 KB nằm trong repo (`wordlist/data/`) và đi kèm bản cài. Mô hình
+46 MB thì không — không phải vì giấy phép (nó cũng CC BY-SA, phát hành lại
+được) mà vì một khối nhị phân mấy chục MB đổi trọn gói mỗi lần train thì
+không thuộc về git. Nó dựng lại được bằng một nút bấm: workflow
+`Dựng dữ liệu ngôn ngữ` tải Wikipedia, trích văn bản
+(`tools/extract_wikipedia.py`), dựng bảng, train, rồi **đo lại chất lượng
+trên 5% văn bản không dùng để train** và in con số ra ngay trang tóm tắt.
+Preset `small` cắt n-gram hiếm: 12,6 MB thay vì 46,3 MB, đổi lấy 0,3 điểm
+độ chính xác — với một file phải tải về và nằm thường trú trong RAM thì đó
+là món hời.
+
+Bảng âm tiết là artifact phát hành nên nó **có test riêng**: nạp được,
+đúng cỡ, có chữ thông dụng, không có chữ ngoại lai, và mọi mục đều là chữ
+engine gõ tay ra được — tính chất mà công cụ sinh ra nó tự nhận, nay được
+kiểm lại trên từng mục mỗi lần chạy CI.
 
 Thiếu bảng âm tiết thì mục menu bị làm mờ kèm lý do; có bảng mà thiếu mô
-hình thì vẫn đoán được những chữ chỉ có một cách viết. Không bao giờ hỏng,
-chỉ là làm được ít hơn.
+hình thì vẫn đoán được những chữ chỉ có một cách viết, và phím xoay dấu vẫn
+xếp chữ có thật lên trước. Không bao giờ hỏng, chỉ là làm được ít hơn.
+
+Tiến trình nền tìm file **cạnh exe trước, rồi tới thư mục cha**: bản cài có
+`x64\` và `x86\` nằm cạnh nhau, để mô hình ở thư mục cha là một bản dùng
+chung thay vì hai bản y hệt nhau tốn gấp đôi chỗ.
 
 Cách này còn hợp với hướng đi sau: **đổi mô hình không phải dịch lại gì.**
 

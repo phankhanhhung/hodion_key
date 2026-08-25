@@ -4,15 +4,16 @@
 // đó có phải chữ người ta dùng hay không. Đó là kiến thức từ vựng, phải lấy
 // từ một cuốn từ điển.
 //
-// KHÔNG có bảng nào được biên dịch sẵn vào đây, và đó là lựa chọn có chủ ý:
-// từ điển chính tả tiếng Việt sẵn có (gói hunspell-vi của LibreOffice) là
-// **GPL-2**, đưa dữ liệu dẫn xuất từ nó vào đây sẽ kéo giấy phép đó lên cả
-// dự án. Thay vào đó, người dùng tự sinh file bằng tools/build_syllables.py
-// trên máy mình và đặt cạnh exe. Không có file thì phần đoán dấu đơn giản
-// là không bật được — mọi thứ còn lại chạy như thường.
+// Bảng KHÔNG được biên dịch sẵn vào đây mà nạp lúc chạy, và đó là lựa chọn
+// có chủ ý: đổi bảng — hay sau này thay bằng một nguồn từ vựng tốt hơn —
+// không phải dịch lại gì cả. Không có file thì phần đoán dấu đơn giản là
+// không bật được; mọi thứ còn lại chạy như thường.
 //
-// Cùng lý do đó, đây là nơi cắm mô hình tốt hơn sau này: đổi file, không
-// phải dịch lại.
+// Bảng phát hành kèm bản cài nằm ở wordlist/data/viet-syllables.txt, sinh
+// từ kho văn bản Wikipedia lọc qua chính bộ luật gõ (tools/build_syllables.py).
+// Bản đầu tiên lấy từ hunspell-vi nhưng từ điển đó là GPL-2 nên không phát
+// hành kèm được — mà một bảng không giao được cho người dùng thì tính năng
+// coi như không có.
 #pragma once
 
 #include <string>
@@ -35,6 +36,10 @@ class SyllableList final : public SyllableSet {
   size_t size() const { return items_.size(); }
 
   bool contains(const std::u32string& syllable) const override;
+
+  // Đọc thẳng danh sách (đã sắp xếp). Dùng để kiểm chính bảng: mọi mục
+  // phải là chữ engine gõ ra được.
+  const std::vector<std::u32string>& items() const { return items_; }
 
  private:
   std::vector<std::u32string> items_;  // đã sắp xếp

@@ -1,0 +1,51 @@
+GIẤY PHÉP DỮ LIỆU NGÔN NGỮ TIẾNG VIỆT
+=====================================
+
+Áp dụng cho hai file dữ liệu của phần đoán dấu:
+
+    viet-syllables.txt   bảng âm tiết tiếng Việt có thật
+    viet-ngram.bin       mô hình 3-gram âm tiết (nếu bạn có nó)
+
+NGUỒN
+-----
+Cả hai được sinh từ văn bản của **Wikipedia tiếng Việt**
+(https://vi.wikipedia.org), do cộng đồng đóng góp viết.
+
+Văn bản Wikipedia phát hành theo Creative Commons Attribution-ShareAlike
+(CC BY-SA 4.0, https://creativecommons.org/licenses/by-sa/4.0/deed.vi),
+đồng thời theo GFDL.
+
+GIẤY PHÉP CỦA HAI FILE NÀY
+--------------------------
+CC BY-SA 4.0, cùng giấy phép với nguồn.
+
+Nghĩa là bạn được dùng, chép, sửa và phát hành lại chúng, miễn là:
+  * ghi nguồn (Wikipedia tiếng Việt và các tác giả của nó), và
+  * phát hành bản sửa đổi theo cùng giấy phép này.
+
+QUAN HỆ VỚI PHẦN MÃ NGUỒN
+-------------------------
+Điều khoản "chia sẻ tương tự" (share-alike) áp dụng cho BẢN SỬA ĐỔI của
+chính dữ liệu, không áp dụng cho phần mềm chỉ đi kèm nó trong cùng một gói.
+CC BY-SA 4.0 gọi trường hợp này là "Collection" (mục 1(a) và 4(b)): gộp tác
+phẩm vào một tập hợp không biến những phần khác của tập hợp thành tác phẩm
+phái sinh.
+
+Nói cách khác: HodionKey đọc hai file này lúc chạy, và phát hành chúng
+trong cùng thư mục — không nhúng chúng vào mã, không sinh mã từ chúng.
+
+CÁCH SINH LẠI
+-------------
+Cả hai đều dựng lại được từ đầu, xem tools/build_syllables.py và
+tools/train_ngram.py. Bảng âm tiết còn đi qua một lớp lọc nữa: chỉ giữ
+những âm tiết mà chính bộ luật gõ của HodionKey sinh ra được.
+
+MỘT NGUỒN ĐÃ BỊ BỎ, VÀ VÌ SAO
+-----------------------------
+Bản đầu tiên của bảng âm tiết lấy từ từ điển chính tả hunspell-vi của
+LibreOffice. Từ điển đó là GPL-2, nên bảng dẫn xuất cũng phải là GPL-2, nên
+không phát hành kèm được, nên tính năng đoán dấu không đến tay ai dùng.
+
+Bảng hiện tại không còn dính gì tới hunspell-vi. Và nó không phải là bản
+thay thế kém hơn: đo trên 619.724 âm tiết ngoài dữ liệu train, nó đúng
+96,6% khi mô hình ra tay (bảng cũ: 96,5%) và biết nhiều từ có thật hơn.

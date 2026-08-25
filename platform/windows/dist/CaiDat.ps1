@@ -216,17 +216,23 @@ function Install-Machine {
             Copy-Payload -From $src -To (Join-Path $InstallDir $name)
         }
     }
-    $dataCopied = 0
+    # Dữ liệu đoán dấu chép MỘT bản vào thư mục gốc, không chép vào từng
+    # thư mục kiến trúc: tiến trình nền tìm ở cạnh exe rồi mới tới thư mục
+    # cha, mà mô hình thì mấy chục MB — hai bản y hệt nhau là phí nửa số đó.
     foreach ($name in @('viet-syllables.txt', 'viet-ngram.bin')) {
         $src = Join-Path $Source $name
         if (Test-Path -LiteralPath $src) {
-            foreach ($arch in $arches) {
-                Copy-Payload -From $src -To (Join-Path (Join-Path $InstallDir $arch) $name)
-            }
-            $dataCopied++
+            Copy-Payload -From $src -To (Join-Path $InstallDir $name)
         }
     }
-    if ($dataCopied -eq 0) {
+    if (Test-Path -LiteralPath (Join-Path $InstallDir 'viet-ngram.bin')) {
+        Say '  Có cả bảng âm tiết lẫn mô hình: đoán dấu theo ngữ cảnh chạy được.'
+    }
+    elseif (Test-Path -LiteralPath (Join-Path $InstallDir 'viet-syllables.txt')) {
+        Say '  Có bảng âm tiết, chưa có mô hình: đoán được chữ chỉ có MỘT'
+        Say '  cách viết, và phím xoay dấu xếp chữ có thật lên trước.'
+    }
+    else {
         Say '  (Không có dữ liệu đoán dấu trong gói — xem DOC-TRUOC-KHI-CAI.txt.)'
     }
 

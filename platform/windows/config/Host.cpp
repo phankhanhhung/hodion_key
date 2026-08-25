@@ -38,8 +38,8 @@ constexpr WCHAR kShowMessageName[] = L"HodionKey.ShowConfig";
 constexpr UINT WM_TRAY_CALLBACK = WM_APP + 1;
 
 // Bảng âm tiết đặt cạnh exe. Cố ý là file rời chứ không biên dịch vào:
-// từ điển nguồn là GPL-2 (xem tools/build_syllables.py), và để bảng rời thì
-// sau này thay bằng mô hình tốt hơn cũng không phải dịch lại.
+// bảng rời thì sau này thay bằng mô hình tốt hơn cũng không phải dịch lại,
+// và mô hình mấy chục MB thì không có chuyện nhúng vào exe.
 constexpr WCHAR kSyllableFile[] = L"viet-syllables.txt";
 constexpr WCHAR kModelFile[] = L"viet-ngram.bin";
 constexpr DWORD kMaxSyllableFileBytes = 8u * 1024 * 1024;
@@ -104,6 +104,17 @@ bool ReadWholeFile(const std::wstring& path, std::string* out,
 // Nạp bảng âm tiết và mô hình đặt cạnh exe. Thiếu bảng thì phần đoán dấu
 // không bật được; có bảng mà thiếu mô hình thì vẫn đoán được những chữ chỉ
 // có một cách viết. Mọi thứ khác chạy như thường trong cả hai trường hợp.
+// Tìm ở thư mục chứa exe TRƯỚC, rồi tới thư mục cha. Bản cài có hai thư
+// mục x64 và x86 nằm cạnh nhau, mà mô hình thì mấy chục MB — để nó ở thư
+// mục cha là một bản dùng chung cho cả hai, thay vì hai bản y hệt nhau.
+bool ReadDataFile(const std::wstring& dir, const WCHAR* name, DWORD limit,
+                  std::string* out) {
+  if (ReadWholeFile(dir + name, out, limit)) return true;
+  const size_t slash = dir.find_last_of(L'\\', dir.size() - 2);
+  if (slash == std::wstring::npos) return false;
+  return ReadWholeFile(dir.substr(0, slash + 1) + name, out, limit);
+}
+
 void LoadLanguageData(Host& host) {
   WCHAR path[MAX_PATH] = {};
   const DWORD len = GetModuleFileNameW(nullptr, path, ARRAYSIZE(path));
@@ -115,12 +126,12 @@ void LoadLanguageData(Host& host) {
   dir.resize(slash + 1);
 
   std::string contents;
-  if (ReadWholeFile(dir + kSyllableFile, &contents, kMaxSyllableFileBytes)) {
+  if (ReadDataFile(dir, kSyllableFile, kMaxSyllableFileBytes, &contents)) {
     host.syllables.load(contents);
   }
   contents.clear();
   contents.shrink_to_fit();
-  if (ReadWholeFile(dir + kModelFile, &contents, kMaxModelFileBytes)) {
+  if (ReadDataFile(dir, kModelFile, kMaxModelFileBytes, &contents)) {
     host.model.load(contents);
   }
 }

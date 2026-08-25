@@ -22,6 +22,10 @@ endif()
 add_executable(hodion_wordlist_tests tests/wordlist_test.cpp)
 target_link_libraries(hodion_wordlist_tests PRIVATE hodion_words)
 target_include_directories(hodion_wordlist_tests PRIVATE data)
+# Bảng âm tiết là thứ ĐƯỢC PHÁT HÀNH kèm bản cài, nên nó phải có test như
+# mọi thứ khác. Đường dẫn đưa vào lúc dịch; thiếu file thì test tự bỏ qua.
+target_compile_definitions(hodion_wordlist_tests PRIVATE
+  HODION_SYLLABLE_TABLE="${CMAKE_CURRENT_SOURCE_DIR}/data/viet-syllables.txt")
 if(MSVC)
   target_compile_options(hodion_wordlist_tests PRIVATE /utf-8)
 endif()

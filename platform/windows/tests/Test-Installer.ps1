@@ -88,6 +88,12 @@ foreach ($rel in @('x64\HodionKey.dll', 'x64\HodionKeyConfig.exe',
                    'GoCaiDat.ps1', 'GoCaiDat.bat', 'DOC-TRUOC-KHI-CAI.txt')) {
     Check "có $rel" (Test-Path -LiteralPath (Join-Path $InstallDir $rel))
 }
+# Dữ liệu đoán dấu nằm ở thư mục GỐC, một bản dùng chung cho cả hai kiến
+# trúc — tiến trình nền tìm cạnh exe rồi mới tới thư mục cha.
+Check 'bảng âm tiết ở thư mục gốc bản cài' `
+    (Test-Path -LiteralPath (Join-Path $InstallDir 'viet-syllables.txt'))
+Check 'KHÔNG nhân bản vào từng thư mục kiến trúc' `
+    (-not (Test-Path -LiteralPath (Join-Path $InstallDir 'x64\viet-syllables.txt')))
 
 Write-Host ''
 Write-Host '=== 3. COM server đã đăng ký ==='
