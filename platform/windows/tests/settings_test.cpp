@@ -44,7 +44,9 @@ bool SameSettings(const HodionSettings& a, const HodionSettings& b) {
          a.vietnamese_on == b.vietnamese_on &&
          a.skip_input_scopes == b.skip_input_scopes &&
          a.auto_diacritics == b.auto_diacritics &&
-         a.predict_margin == b.predict_margin && a.toggle == b.toggle;
+         a.predict_margin == b.predict_margin && a.toggle == b.toggle &&
+         a.method_key == b.method_key && a.predict_key == b.predict_key &&
+         a.cancel_key == b.cancel_key;
 }
 
 std::wstring Wide(const char32_t* s) {
@@ -91,6 +93,9 @@ int main() {
   s.auto_diacritics = true;
   s.predict_margin = 35;
   s.toggle = ToggleKey{'Z', TF_MOD_ALT};
+  s.method_key = ToggleKey{VK_F9, TF_MOD_CONTROL | TF_MOD_SHIFT};
+  s.predict_key = ToggleKey{};                       // tắt hẳn
+  s.cancel_key = ToggleKey{VK_OEM_5, TF_MOD_ALT};
 
   Check(SaveHodionSettings(s), "SaveHodionSettings");
   HodionSettings loaded = LoadHodionSettings();
@@ -101,6 +106,9 @@ int main() {
   Check(loaded.auto_diacritics, "vòng đọc/ghi tự thêm dấu");
   Check(loaded.predict_margin == 35, "vòng đọc/ghi ngưỡng tin cậy");
   Check(loaded.toggle == s.toggle, "vòng đọc/ghi phím chuyển");
+  Check(loaded.method_key == s.method_key, "vòng đọc/ghi phím Telex/VNI");
+  Check(!loaded.predict_key.enabled(), "phím tắt hẳn vẫn tắt sau khi đọc lại");
+  Check(loaded.cancel_key == s.cancel_key, "vòng đọc/ghi phím hủy dấu");
 
   // Chỉ đổi trạng thái bật/tắt (đường đi khi người dùng bấm phím chuyển).
   Check(SaveHodionVietnameseOn(true), "SaveHodionVietnameseOn");
@@ -148,28 +156,53 @@ int main() {
     Check(LoadHodionSettings().predict_margin == 20,
           "ngưỡng hỏng quay về mặc định");
   }
-  int preset_count = 0;
-  const TogglePreset* presets = HodionTogglePresets(&preset_count);
-  Check(preset_count > 0 && presets[0].key == def.toggle,
-        "phím chuyển mặc định là mục đầu danh sách");
-  for (int i = 0; i < preset_count; ++i) {
-    Check(presets[i].key.valid(), "mọi phím chuyển dựng sẵn đều có modifier");
-  }
+  Check(def.toggle == HodionDefaultToggleKey(), "phím chuyển mặc định");
+  Check(def.cancel_key == HodionDefaultCancelKey(), "phím hủy dấu mặc định");
+  Check(def.toggle.valid() && def.cancel_key.valid(),
+        "phím mặc định đều có modifier");
+  // Hai phím bật sẵn phải khác nhau, nếu không cái sau đăng ký hỏng.
+  Check(def.toggle != def.cancel_key, "phím mặc định không trùng nhau");
+  Check(!def.method_key.enabled() && !def.predict_key.enabled(),
+        "phím Telex/VNI và tự thêm dấu mặc định tắt");
 
-  // Phím chuyển hỏng trong registry không được phép chiếm một phím trần.
+  // --- Phím tắt: tắt được, nhưng không được phép là phím trần ---
   {
     HKEY key = nullptr;
     RegCreateKeyExW(HKEY_CURRENT_USER, kHodionSettingsKey, 0, nullptr,
                     REG_OPTION_NON_VOLATILE, KEY_SET_VALUE, nullptr, &key,
                     nullptr);
-    const DWORD none = 0;
-    RegSetValueExW(key, L"ToggleMods", 0, REG_DWORD,
-                   reinterpret_cast<const BYTE*>(&none), sizeof(none));
-    RegCloseKey(key);
+    const auto put = [&](const WCHAR* name, DWORD v) {
+      RegSetValueExW(key, name, 0, REG_DWORD,
+                     reinterpret_cast<const BYTE*>(&v), sizeof(v));
+    };
 
-    const HodionSettings bad = LoadHodionSettings();
-    Check(bad.toggle.valid(), "phím chuyển thiếu modifier bị loại");
-    Check(bad.toggle == presets[0].key, "quay về phím chuyển mặc định");
+    // Có phím nhưng không modifier: sẽ nuốt mất phím đó khi gõ → về mặc định.
+    put(L"ToggleKey", VK_SPACE);
+    put(L"ToggleMods", 0);
+    Check(LoadHodionSettings().toggle == HodionDefaultToggleKey(),
+          "phím thiếu modifier quay về mặc định");
+
+    // vk = 0 là TẮT hẳn — hợp lệ, phải giữ nguyên ý người dùng.
+    put(L"ToggleKey", 0);
+    put(L"ToggleMods", 0);
+    Check(!LoadHodionSettings().toggle.enabled(), "vk = 0 nghĩa là tắt hẳn");
+
+    put(L"CancelKey", 0);
+    put(L"CancelMods", 0);
+    Check(!LoadHodionSettings().cancel_key.enabled(),
+          "phím hủy dấu cũng tắt được");
+
+    RegCloseKey(key);
+  }
+
+  // --- Mô tả phím cho người đọc ---
+  Check(HodionDescribeKey(ToggleKey{}) == std::wstring(L"(tắt)"),
+        "phím tắt hiện là (tắt)");
+  {
+    const std::wstring text =
+        HodionDescribeKey(ToggleKey{VK_SPACE, TF_MOD_CONTROL});
+    Check(text.find(L"Ctrl") != std::wstring::npos, "có nhắc Ctrl");
+    Check(text.find(L"+") != std::wstring::npos, "có dấu cộng");
   }
 
   // --- Ranh giới từ cho reconversion ---

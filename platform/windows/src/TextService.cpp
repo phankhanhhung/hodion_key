@@ -117,8 +117,8 @@ STDMETHODIMP CTextService::ActivateEx(ITfThreadMgr* ptim, TfClientId tid,
     }
   }
 
-  // Phím chuyển Việt/Anh + theo dõi compartment bật/tắt của hệ thống.
-  RegisterToggleKey();
+  // Phím tắt + theo dõi compartment bật/tắt của hệ thống.
+  RegisterHotKeys();
   {
     com_ptr<ITfCompartment> comp;
     if (SUCCEEDED(GetOpenCloseCompartment(comp.put())) && comp) {
@@ -139,7 +139,7 @@ STDMETHODIMP CTextService::Deactivate() {
   FinalizeComposition();
   watcher_.stop();
   hostClient_.Close();
-  UnregisterToggleKey();
+  UnregisterHotKeys();
 
   if (threadMgr_) {
     if (openCloseSinkCookie_ != TF_INVALID_COOKIE) {
@@ -354,10 +354,14 @@ void CTextService::ApplySettings(const HodionSettings& s) {
   autoDiacritics_ = s.auto_diacritics;
   InvalidateInputScope();
 
-  if (!(s.toggle == toggleKey_)) {
-    UnregisterToggleKey();
+  cancelKey_ = s.cancel_key;  // không phải preserved key, gán thẳng
+  if (s.toggle != toggleKey_ || s.method_key != methodKey_ ||
+      s.predict_key != predictKey_) {
+    UnregisterHotKeys();
     toggleKey_ = s.toggle;
-    if (threadMgr_) RegisterToggleKey();
+    methodKey_ = s.method_key;
+    predictKey_ = s.predict_key;
+    if (threadMgr_) RegisterHotKeys();
   }
 }
 
@@ -413,40 +417,54 @@ void CTextService::SetVietnamese(bool on, bool persist) {
   }
 }
 
-void CTextService::RegisterToggleKey() {
+void CTextService::RegisterOneKey(REFGUID guid, const ToggleKey& key,
+                                  const WCHAR* description) {
   // Không bao giờ chiếm một phím trần — nó sẽ biến mất khỏi bàn phím.
-  if (toggleRegistered_ || !threadMgr_ || !toggleKey_.valid()) return;
+  if (!key.valid()) return;
 
   com_ptr<ITfKeystrokeMgr> keystrokeMgr;
   if (FAILED(threadMgr_->QueryInterface(IID_ITfKeystrokeMgr,
                                         keystrokeMgr.put_void()))) {
     return;
   }
-
-  TF_PRESERVEDKEY key;
-  key.uVKey = toggleKey_.vk;
-  key.uModifiers = toggleKey_.mods;
-  if (SUCCEEDED(keystrokeMgr->PreserveKey(
-          clientId_, GUID_HodionKeyToggle, &key, kToggleKeyDescription,
-          static_cast<ULONG>(wcslen(kToggleKeyDescription))))) {
-    toggleRegistered_ = true;
-  }
+  TF_PRESERVEDKEY pk;
+  pk.uVKey = key.vk;
+  pk.uModifiers = key.mods;
+  keystrokeMgr->PreserveKey(clientId_, guid, &pk, description,
+                            static_cast<ULONG>(wcslen(description)));
 }
 
-void CTextService::UnregisterToggleKey() {
-  if (!toggleRegistered_ || !threadMgr_) {
-    toggleRegistered_ = false;
+void CTextService::RegisterHotKeys() {
+  if (keysRegistered_ || !threadMgr_) return;
+  RegisterOneKey(GUID_HodionKeyToggle, toggleKey_, kToggleKeyDescription);
+  RegisterOneKey(GUID_HodionKeyMethod, methodKey_, kMethodKeyDescription);
+  RegisterOneKey(GUID_HodionKeyPredict, predictKey_, kPredictKeyDescription);
+  keysRegistered_ = true;
+}
+
+void CTextService::UnregisterHotKeys() {
+  if (!keysRegistered_ || !threadMgr_) {
+    keysRegistered_ = false;
     return;
   }
   com_ptr<ITfKeystrokeMgr> keystrokeMgr;
   if (SUCCEEDED(threadMgr_->QueryInterface(IID_ITfKeystrokeMgr,
                                            keystrokeMgr.put_void()))) {
-    TF_PRESERVEDKEY key;
-    key.uVKey = toggleKey_.vk;
-    key.uModifiers = toggleKey_.mods;
-    keystrokeMgr->UnpreserveKey(GUID_HodionKeyToggle, &key);
+    const struct {
+      const GUID* guid;
+      const ToggleKey* key;
+    } kAll[] = {{&GUID_HodionKeyToggle, &toggleKey_},
+                {&GUID_HodionKeyMethod, &methodKey_},
+                {&GUID_HodionKeyPredict, &predictKey_}};
+    for (const auto& entry : kAll) {
+      if (!entry.key->valid()) continue;
+      TF_PRESERVEDKEY pk;
+      pk.uVKey = entry.key->vk;
+      pk.uModifiers = entry.key->mods;
+      keystrokeMgr->UnpreserveKey(*entry.guid, &pk);
+    }
   }
-  toggleRegistered_ = false;
+  keysRegistered_ = false;
 }
 
 // ---- ITfCompartmentEventSink ----------------------------------------------

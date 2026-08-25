@@ -30,10 +30,18 @@
 #define IDC_OPT_AUTODIACRITIC 1051
 #define IDC_LBL_PREDICTHINT   1052
 
-#define IDC_GRP_TOGGLE        1030
-#define IDC_LBL_TOGGLE        1031
-#define IDC_COMBO_TOGGLE      1032
 #define IDC_CHK_VIETNAMESE    1033
 #define IDC_LBL_HINT          1034
+
+#define IDC_GRP_KEYS          1060
+#define IDC_LBL_KEY_TOGGLE    1061
+#define IDC_LBL_KEY_METHOD    1062
+#define IDC_LBL_KEY_PREDICT   1063
+#define IDC_LBL_KEY_CANCEL    1064
+#define IDC_HOTKEY_TOGGLE     1065
+#define IDC_HOTKEY_METHOD     1066
+#define IDC_HOTKEY_PREDICT    1067
+#define IDC_HOTKEY_CANCEL     1068
+#define IDC_LBL_KEYHINT       1069
 
 #define IDC_DEFAULTS          1040

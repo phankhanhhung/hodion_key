@@ -191,11 +191,23 @@ Phần dò ranh giới từ tách ra `WordScan.cpp` để test được mà khô
 
 ### Bật/tắt tiếng Việt và cấu hình
 
-Phím chuyển đăng ký bằng `ITfKeystrokeMgr::PreserveKey` (mặc định
-`Ctrl + Space`) nên TSF giao thẳng qua `OnPreservedKey`, không lẫn vào luồng
-phím thường; phím chuyển bắt buộc có modifier để không nuốt mất một phím gõ.
-Khi tắt, `ClassifyKey` trả `NotOurs` cho mọi phím — ứng dụng nhận phím
-nguyên vẹn.
+Bốn hành động có phím riêng, đặt tự do trong app cấu hình. Ba cái đầu —
+chuyển Việt/Anh, chuyển Telex/VNI, bật tắt tự thêm dấu — đăng ký bằng
+`ITfKeystrokeMgr::PreserveKey` nên TSF giao thẳng qua `OnPreservedKey`,
+không lẫn vào luồng phím thường, và chạy cả khi không gõ dở.
+
+Cái thứ tư — **bỏ dấu cho một từ** — cố ý KHÔNG đăng ký. Nó chỉ có nghĩa
+khi đang gõ dở, nên nó được kiểm trong `ClassifyKey`; đăng ký sẽ chiếm mất
+tổ hợp đó của ứng dụng kể cả lúc không gõ (mặc định là `Ctrl + Backspace`,
+tức "xóa một từ" của mọi ô nhập liệu).
+
+Quy ước giá trị: virtual-key `0` = **tắt hẳn**; có virtual-key mà không
+modifier = **hỏng**, quay về mặc định — phím trần sẽ nuốt mất phím đó khi
+gõ. App cấu hình cũng từ chối lưu khi hai hành động trùng tổ hợp, vì
+`PreserveKey` thứ hai sẽ lặng lẽ hỏng.
+
+Khi tắt tiếng Việt, `ClassifyKey` trả `NotOurs` cho mọi phím — ứng dụng nhận
+phím nguyên vẹn.
 
 Cấu hình nằm ở `HKCU\Software\HodionKey`, dùng chung giữa text service
 (`src/Settings.cpp`) và app cấu hình (`config/`). Text service không đọc

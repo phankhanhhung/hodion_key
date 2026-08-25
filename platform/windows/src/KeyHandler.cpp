@@ -8,6 +8,20 @@ bool IsKeyPressed(int vk) { return (GetKeyState(vk) & 0x8000) != 0; }
 
 bool IsCapsLockOn() { return (GetKeyState(VK_CAPITAL) & 0x0001) != 0; }
 
+// Modifier đang giữ, theo cách đánh số của TSF.
+UINT CurrentMods() {
+  UINT mods = 0;
+  if (IsKeyPressed(VK_CONTROL)) mods |= TF_MOD_CONTROL;
+  if (IsKeyPressed(VK_MENU)) mods |= TF_MOD_ALT;
+  if (IsKeyPressed(VK_SHIFT)) mods |= TF_MOD_SHIFT;
+  return mods;
+}
+
+// Khớp CHÍNH XÁC: Ctrl+Shift+Backspace không được tính là Ctrl+Backspace.
+bool Matches(const ToggleKey& key, WPARAM vk) {
+  return key.valid() && key.vk == vk && CurrentMods() == key.mods;
+}
+
 // Dịch virtual key → ký tự theo sơ đồ QWERTY-US (layout nền phổ biến của
 // người gõ tiếng Việt). Trả về 0 nếu phím không sinh ký tự in được.
 wchar_t VkToChar(WPARAM vk) {
@@ -62,11 +76,11 @@ CTextService::KeyDisposition CTextService::ClassifyKey(WPARAM wParam,
                      : KeyDisposition::NotOurs;
   }
 
-  // Ctrl + Backspace khi đang gõ dở: hủy biến đổi tiếng Việt của từ này rồi
-  // gõ thẳng phần còn lại ("deadline", "test"…). Chỉ chiếm phím lúc đang
-  // composing nên Ctrl+Backspace "xóa một từ" của ứng dụng vẫn nguyên vẹn.
-  if (composing && wParam == VK_BACK && IsKeyPressed(VK_CONTROL) &&
-      !IsKeyPressed(VK_MENU) && !engine_.literal()) {
+  // Phím hủy biến đổi khi đang gõ dở: bỏ dấu cho riêng từ này rồi gõ thẳng
+  // phần còn lại ("deadline", "test"…). Chỉ chiếm phím lúc đang composing
+  // nên tổ hợp đó của ứng dụng (mặc định Ctrl+Backspace = xóa một từ) vẫn
+  // nguyên vẹn khi không gõ dở.
+  if (composing && !engine_.literal() && Matches(cancelKey_, wParam)) {
     return KeyDisposition::CancelTransform;
   }
 
@@ -242,11 +256,35 @@ STDMETHODIMP CTextService::OnKeyUp(ITfContext*, WPARAM, LPARAM,
 STDMETHODIMP CTextService::OnPreservedKey(ITfContext*, REFGUID rguid,
                                           BOOL* pfEaten) {
   if (!pfEaten) return E_INVALIDARG;
+  *pfEaten = TRUE;
+
   if (IsEqualGUID(rguid, GUID_HodionKeyToggle)) {
     SetVietnamese(!vietnamese_, /*persist=*/true);
-    *pfEaten = TRUE;
     return S_OK;
   }
+
+  if (IsEqualGUID(rguid, GUID_HodionKeyMethod)) {
+    // Đổi kiểu gõ giữa chừng thì từ đang dở phải chốt trước, nếu không nửa
+    // đầu gõ theo luật này còn nửa sau theo luật kia.
+    FinalizeComposition();
+    hodion::Config cfg = engine_.config();
+    cfg.method = cfg.method == hodion::InputMethod::Telex
+                     ? hodion::InputMethod::Vni
+                     : hodion::InputMethod::Telex;
+    engine_.set_config(cfg);
+    SaveHodionInputMethod(cfg.method);
+    watcher_.poll();  // nuốt lượt báo do chính ta vừa ghi
+    return S_OK;
+  }
+
+  if (IsEqualGUID(rguid, GUID_HodionKeyPredict)) {
+    autoDiacritics_ = !autoDiacritics_;
+    ResetPredictContext();
+    SaveHodionAutoDiacritics(autoDiacritics_);
+    watcher_.poll();
+    return S_OK;
+  }
+
   *pfEaten = FALSE;
   return S_OK;
 }

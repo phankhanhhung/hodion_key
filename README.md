@@ -183,14 +183,29 @@ Chốt từ xong là tiếng Việt trở lại ngay, không phải bật/tắt 
 chỉ hoạt động khi đang gõ dở một từ, nên `Ctrl + Backspace` "xóa một từ"
 của ứng dụng vẫn nguyên vẹn.
 
-## Chuyển Việt / Anh
+## Phím tắt
 
-Bấm **`Ctrl + Space`** (mặc định) khi đang gõ để bật/tắt tiếng Việt — không
-cần đổi bàn phím. Phím chuyển đổi được trong app cấu hình (`Ctrl + Space`,
-`Ctrl + Shift + Space`, `Alt + Z`, `Ctrl + ` `` `, `Alt + ` `` `).
+Bốn hành động, **mỗi cái đặt được phím riêng** trong app cấu hình — bấm tổ
+hợp vào ô là xong, bấm `Delete` để tắt hẳn phím đó:
 
-Trạng thái bật/tắt dùng chung cho mọi ứng dụng đang gõ (lưu ở registry), và
-đồng bộ với chỉ báo IME của Windows — tắt từ thanh ngôn ngữ cũng có tác dụng.
+| Hành động | Mặc định |
+|---|---|
+| Chuyển Việt / Anh | `Ctrl + Space` |
+| Chuyển Telex / VNI | tắt |
+| Bật/tắt tự thêm dấu | tắt |
+| Bỏ dấu cho **một** từ đang gõ | `Ctrl + Backspace` |
+
+Mỗi phím **bắt buộc có** `Ctrl`, `Alt` hoặc `Shift`: phím trần sẽ bị bộ gõ
+nuốt mất và bạn không gõ được ký tự đó nữa. App cấu hình từ chối lưu nếu
+thiếu modifier hoặc nếu hai hành động trùng tổ hợp.
+
+Ba phím đầu đăng ký với Windows nên chạy cả khi không gõ dở. Phím thứ tư thì
+không — nó **chỉ có hiệu lực khi đang gõ dở một từ**, nhờ vậy
+`Ctrl + Backspace` (xóa một từ) của ứng dụng vẫn nguyên vẹn lúc bình thường.
+
+Trạng thái Việt/Anh dùng chung cho mọi ứng dụng đang gõ (lưu ở registry),
+đồng bộ với chỉ báo IME của Windows và với icon ở khay hệ thống — đổi ở đâu
+cũng khớp.
 
 ## Sửa dấu cho chữ đã gõ rồi
 
@@ -220,8 +235,9 @@ hộp thoại chạy rồi thoát. Nó giữ icon trạng thái ở khay hệ th
 - **V đỏ** — đang gõ tiếng Việt, **E xám** — đang tắt. Hai trạng thái khác
   nhau ở *chữ* chứ không chỉ ở màu, để phân biệt được cả ở 16×16 lẫn khi
   mù màu.
-- **Bấm trái** bật/tắt tiếng Việt, **chuột phải** mở menu (kiểu gõ, cấu
-  hình, khởi động cùng Windows, thoát), **bấm đúp** mở hộp thoại cấu hình.
+- **Bấm trái** bật/tắt tiếng Việt; **chuột phải** mở menu (kiểu gõ, tự thêm
+  dấu, cấu hình, khởi động cùng Windows, thoát). Menu hiện luôn phím tắt của
+  từng mục.
 - Icon bám theo phím `Ctrl + Space` bấm trong ứng dụng khác — trạng thái
   đi qua registry nên hai bên luôn khớp.
 
@@ -359,11 +375,14 @@ hoặc triển khai theo chính sách. Mặc định trùng với mặc định 
 | `SkipInputScopes` | `1`    | Tự tắt ở ô URL / email / mật khẩu / ô số        |
 | `AutoDiacritics` | `0`     | Tự thêm dấu cho chữ không dấu (cần tiến trình nền) |
 | `PredictMargin` | `20`     | Ngưỡng tin cậy ×10; cao hơn = ít đổi hơn nhưng đúng hơn |
-| `ToggleKey`     | `0x20`   | Virtual-key của phím chuyển (`0x20` = Space)     |
-| `ToggleMods`    | `2`      | Modifier: 1 = Alt, 2 = Ctrl, 4 = Shift (cộng dồn) |
+| `ToggleKey` / `ToggleMods` | `0x20` / `2` | Chuyển Việt / Anh |
+| `MethodKey` / `MethodMods` | `0` / `0` | Chuyển Telex / VNI (0 = tắt) |
+| `PredictKey` / `PredictMods` | `0` / `0` | Bật/tắt tự thêm dấu (0 = tắt) |
+| `CancelKey` / `CancelMods` | `0x08` / `2` | Bỏ dấu cho một từ đang gõ |
 
-`ToggleMods` bắt buộc khác 0 — phím chuyển không có modifier sẽ nuốt mất
-phím đó khi gõ, nên giá trị hỏng sẽ tự quay về mặc định.
+Modifier: 1 = Alt, 2 = Ctrl, 4 = Shift (cộng dồn). Virtual-key `0` nghĩa là
+**tắt hẳn** phím đó. Có virtual-key mà modifier bằng 0 là giá trị hỏng —
+phím trần sẽ nuốt mất phím đó khi gõ — nên nó tự quay về mặc định.
 
 ## Lộ trình
 

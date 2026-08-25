@@ -11,27 +11,40 @@
 #include <windows.h>
 #include <msctf.h>
 
+#include <string>
+
 #include "hodion/engine.h"
 
 extern const WCHAR kHodionSettingsKey[];
 
+// Một phím tắt. vk == 0 nghĩa là TẮT hẳn hành động đó.
 struct ToggleKey {
-  UINT vk = VK_SPACE;
+  UINT vk = 0;
   // Tổ hợp TF_MOD_ALT | TF_MOD_CONTROL | TF_MOD_SHIFT. Bắt buộc phải có ít
-  // nhất một modifier: phím chuyển trần sẽ nuốt phím đó của người dùng
-  // (đặt Space làm phím chuyển là mất luôn dấu cách).
-  UINT mods = TF_MOD_CONTROL;
+  // nhất một modifier khi phím được bật: phím tắt trần sẽ nuốt mất phím đó
+  // của người dùng (đặt Space làm phím chuyển là mất luôn dấu cách).
+  UINT mods = 0;
 
+  bool enabled() const { return vk != 0; }
   bool valid() const { return vk != 0 && mods != 0; }
   bool operator==(const ToggleKey& o) const {
     return vk == o.vk && mods == o.mods;
   }
+  bool operator!=(const ToggleKey& o) const { return !(*this == o); }
 };
 
 struct HodionSettings {
   hodion::Config engine;
   bool vietnamese_on = true;  // trạng thái gõ tiếng Việt hiện tại
-  ToggleKey toggle;           // phím chuyển Việt/Anh
+
+  // --- Phím tắt. Cái nào cũng tắt được (vk = 0). ---
+  ToggleKey toggle;      // chuyển Việt / Anh          (mặc định Ctrl+Space)
+  ToggleKey method_key;  // chuyển Telex / VNI         (mặc định tắt)
+  ToggleKey predict_key; // bật/tắt tự thêm dấu        (mặc định tắt)
+  // Hủy biến đổi cho RIÊNG từ đang gõ. Khác ba cái trên ở chỗ nó chỉ có
+  // hiệu lực khi đang gõ dở, nên nó KHÔNG được đăng ký làm preserved key —
+  // đăng ký sẽ chiếm mất tổ hợp đó của ứng dụng kể cả lúc không gõ.
+  ToggleKey cancel_key;  // mặc định Ctrl+Backspace
   // Tự tắt tiếng Việt ở ô mà ứng dụng khai là URL/email/mật khẩu/số
   // (hỏi qua ITfInputScope — xem InputScope.cpp).
   bool skip_input_scopes = true;
@@ -45,17 +58,22 @@ struct HodionSettings {
   unsigned predict_margin = 20;
 };
 
-// Danh sách phím chuyển dựng sẵn cho app cấu hình (phần tử 0 là mặc định).
-struct TogglePreset {
-  ToggleKey key;
-  const WCHAR* label;
-};
-const TogglePreset* HodionTogglePresets(int* count);
+// Mặc định của từng phím, dùng cho nút "Mặc định" và khi giá trị hỏng.
+ToggleKey HodionDefaultToggleKey();
+ToggleKey HodionDefaultCancelKey();
+
+// Mô tả một phím tắt cho người đọc ("Ctrl + Space"). Trả về "(tắt)" khi
+// phím không được bật.
+std::wstring HodionDescribeKey(const ToggleKey& key);
 
 HodionSettings LoadHodionSettings();
 bool SaveHodionSettings(const HodionSettings& s);
 // Chỉ ghi trạng thái bật/tắt (dùng khi người dùng bấm phím chuyển).
 bool SaveHodionVietnameseOn(bool on);
+// Ghi đúng một giá trị, dùng khi người dùng bấm phím tắt trong lúc gõ.
+// Ghi cả khối sẽ đè lên thay đổi mà app cấu hình vừa lưu.
+bool SaveHodionInputMethod(hodion::InputMethod method);
+bool SaveHodionAutoDiacritics(bool on);
 
 // Khởi động cùng Windows: mục trong HKCU\...\CurrentVersion\Run, trỏ tới
 // chính exe host kèm --tray để nó nằm im ở khay thay vì mở hộp thoại.

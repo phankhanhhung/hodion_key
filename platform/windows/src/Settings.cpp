@@ -27,24 +27,56 @@ bool WriteDword(HKEY key, const WCHAR* name, DWORD value) {
                         sizeof(value)) == ERROR_SUCCESS;
 }
 
-const TogglePreset kPresets[] = {
-    {{VK_SPACE, TF_MOD_CONTROL}, L"Ctrl + Space"},
-    {{VK_SPACE, TF_MOD_CONTROL | TF_MOD_SHIFT}, L"Ctrl + Shift + Space"},
-    {{'Z', TF_MOD_ALT}, L"Alt + Z"},
-    {{VK_OEM_3, TF_MOD_CONTROL}, L"Ctrl + `"},
-    {{VK_OEM_3, TF_MOD_ALT}, L"Alt + `"},
-};
+// Đọc một phím tắt. Quy ước: vk == 0 là TẮT (hợp lệ). Có vk mà thiếu
+// modifier thì hỏng — phím trần sẽ nuốt mất phím đó của người dùng — nên
+// quay về mặc định của hành động đó.
+ToggleKey ReadKey(HKEY key, const WCHAR* vkName, const WCHAR* modsName,
+                  const ToggleKey& fallback) {
+  ToggleKey out;
+  out.vk = ReadDword(key, vkName, fallback.vk);
+  out.mods = ReadDword(key, modsName, fallback.mods);
+  if (!out.enabled()) return ToggleKey{};  // tắt hẳn, đúng ý người dùng
+  if (!out.valid()) return fallback;
+  return out;
+}
+
+bool WriteKey(HKEY key, const WCHAR* vkName, const WCHAR* modsName,
+              const ToggleKey& value) {
+  bool ok = WriteDword(key, vkName, value.vk);
+  ok &= WriteDword(key, modsName, value.mods);
+  return ok;
+}
 
 }  // namespace
 
-const TogglePreset* HodionTogglePresets(int* count) {
-  if (count) *count = static_cast<int>(sizeof(kPresets) / sizeof(kPresets[0]));
-  return kPresets;
+ToggleKey HodionDefaultToggleKey() { return ToggleKey{VK_SPACE, TF_MOD_CONTROL}; }
+ToggleKey HodionDefaultCancelKey() { return ToggleKey{VK_BACK, TF_MOD_CONTROL}; }
+
+std::wstring HodionDescribeKey(const ToggleKey& key) {
+  if (!key.enabled()) return L"(tắt)";
+
+  std::wstring text;
+  if (key.mods & TF_MOD_CONTROL) text += L"Ctrl + ";
+  if (key.mods & TF_MOD_ALT) text += L"Alt + ";
+  if (key.mods & TF_MOD_SHIFT) text += L"Shift + ";
+
+  WCHAR name[64] = {};
+  const UINT sc = MapVirtualKeyW(key.vk, MAPVK_VK_TO_VSC);
+  if (sc != 0 && GetKeyNameTextW(static_cast<LONG>(sc) << 16, name,
+                                 ARRAYSIZE(name)) > 0) {
+    text += name;
+  } else {
+    WCHAR fallback[16] = {};
+    wsprintfW(fallback, L"VK %u", key.vk);
+    text += fallback;
+  }
+  return text;
 }
 
 HodionSettings LoadHodionSettings() {
   HodionSettings s;
-  s.toggle = kPresets[0].key;
+  s.toggle = HodionDefaultToggleKey();
+  s.cancel_key = HodionDefaultCancelKey();
 
   HKEY key = nullptr;
   if (RegOpenKeyExW(HKEY_CURRENT_USER, kHodionSettingsKey, 0, KEY_QUERY_VALUE,
@@ -70,10 +102,12 @@ HodionSettings LoadHodionSettings() {
   s.auto_diacritics = ReadDword(key, L"AutoDiacritics", 0) != 0;
   s.predict_margin = ReadDword(key, L"PredictMargin", 20);
   if (s.predict_margin > 200) s.predict_margin = 20;  // giá trị hỏng
-  s.toggle.vk = ReadDword(key, L"ToggleKey", kPresets[0].key.vk);
-  s.toggle.mods = ReadDword(key, L"ToggleMods", kPresets[0].key.mods);
-  // Giá trị hỏng hoặc thiếu modifier sẽ chiếm mất một phím gõ bình thường.
-  if (!s.toggle.valid()) s.toggle = kPresets[0].key;
+  s.toggle = ReadKey(key, L"ToggleKey", L"ToggleMods",
+                     HodionDefaultToggleKey());
+  s.method_key = ReadKey(key, L"MethodKey", L"MethodMods", ToggleKey{});
+  s.predict_key = ReadKey(key, L"PredictKey", L"PredictMods", ToggleKey{});
+  s.cancel_key = ReadKey(key, L"CancelKey", L"CancelMods",
+                         HodionDefaultCancelKey());
 
   RegCloseKey(key);
   return s;
@@ -102,23 +136,42 @@ bool SaveHodionSettings(const HodionSettings& s) {
   ok &= WriteDword(key, L"SkipInputScopes", s.skip_input_scopes ? 1 : 0);
   ok &= WriteDword(key, L"AutoDiacritics", s.auto_diacritics ? 1 : 0);
   ok &= WriteDword(key, L"PredictMargin", s.predict_margin);
-  ok &= WriteDword(key, L"ToggleKey", s.toggle.vk);
-  ok &= WriteDword(key, L"ToggleMods", s.toggle.mods);
+  ok &= WriteKey(key, L"ToggleKey", L"ToggleMods", s.toggle);
+  ok &= WriteKey(key, L"MethodKey", L"MethodMods", s.method_key);
+  ok &= WriteKey(key, L"PredictKey", L"PredictMods", s.predict_key);
+  ok &= WriteKey(key, L"CancelKey", L"CancelMods", s.cancel_key);
 
   RegCloseKey(key);
   return ok;
 }
 
-bool SaveHodionVietnameseOn(bool on) {
+namespace {
+
+bool SaveOneDword(const WCHAR* name, DWORD value) {
   HKEY key = nullptr;
   if (RegCreateKeyExW(HKEY_CURRENT_USER, kHodionSettingsKey, 0, nullptr,
                       REG_OPTION_NON_VOLATILE, KEY_SET_VALUE, nullptr, &key,
                       nullptr) != ERROR_SUCCESS) {
     return false;
   }
-  const bool ok = WriteDword(key, L"VietnameseOn", on ? 1 : 0);
+  const bool ok = WriteDword(key, name, value);
   RegCloseKey(key);
   return ok;
+}
+
+}  // namespace
+
+bool SaveHodionVietnameseOn(bool on) {
+  return SaveOneDword(L"VietnameseOn", on ? 1 : 0);
+}
+
+bool SaveHodionInputMethod(hodion::InputMethod method) {
+  return SaveOneDword(L"InputMethod",
+                      method == hodion::InputMethod::Vni ? 1 : 0);
+}
+
+bool SaveHodionAutoDiacritics(bool on) {
+  return SaveOneDword(L"AutoDiacritics", on ? 1 : 0);
 }
 
 // ---------------------------------------------------------------------------

@@ -206,27 +206,42 @@ void SaveAndRefresh(Host& host) {
   RefreshTray(host);
 }
 
+// Ghép phím tắt vào nhãn menu. Menu Windows canh phải phần sau dấu tab,
+// nên đây cũng là chỗ người dùng khám phá ra các phím tắt.
+std::wstring WithKey(const WCHAR* label, const ToggleKey& key) {
+  std::wstring text = label;
+  if (key.enabled()) {
+    text += L'\t';
+    text += HodionDescribeKey(key);
+  }
+  return text;
+}
+
 void ShowMenu(Host& host) {
   HMENU menu = CreatePopupMenu();
   if (!menu) return;
 
-  const bool vn = host.settings.vietnamese_on;
-  const bool telex = host.settings.engine.method == hodion::InputMethod::Telex;
+  const HodionSettings& s = host.settings;
+  const bool vn = s.vietnamese_on;
+  const bool telex = s.engine.method == hodion::InputMethod::Telex;
 
   AppendMenuW(menu, MF_STRING | (vn ? MF_CHECKED : 0), kMenuVietnamese,
-              L"Gõ tiếng &Việt");
+              WithKey(L"Gõ tiếng &Việt", s.toggle).c_str());
   AppendMenuW(menu, MF_SEPARATOR, 0, nullptr);
   AppendMenuW(menu, MF_STRING | (telex ? MF_CHECKED : 0), kMenuTelex,
-              L"&Telex");
-  AppendMenuW(menu, MF_STRING | (!telex ? MF_CHECKED : 0), kMenuVni, L"V&NI");
+              WithKey(L"&Telex", s.method_key).c_str());
+  AppendMenuW(menu, MF_STRING | (!telex ? MF_CHECKED : 0), kMenuVni,
+              WithKey(L"V&NI", s.method_key).c_str());
   AppendMenuW(menu, MF_SEPARATOR, 0, nullptr);
   const bool canPredict = host.server.running() && !host.syllables.empty();
-  AppendMenuW(menu,
-              MF_STRING | (host.settings.auto_diacritics ? MF_CHECKED : 0) |
-                  (canPredict ? 0 : MF_GRAYED),
-              kMenuAutoDiacritics,
-              canPredict ? L"Tự thêm &dấu cho chữ không dấu"
-                         : L"Tự thêm &dấu — thiếu viet-syllables.txt");
+  AppendMenuW(
+      menu,
+      MF_STRING | (s.auto_diacritics ? MF_CHECKED : 0) |
+          (canPredict ? 0 : MF_GRAYED),
+      kMenuAutoDiacritics,
+      canPredict
+          ? WithKey(L"Tự thêm &dấu cho chữ không dấu", s.predict_key).c_str()
+          : L"Tự thêm &dấu — thiếu viet-syllables.txt");
   AppendMenuW(menu, MF_SEPARATOR, 0, nullptr);
   AppendMenuW(menu, MF_STRING, kMenuConfig, L"&Cấu hình…");
   AppendMenuW(menu, MF_STRING | (HodionGetAutoStart() ? MF_CHECKED : 0),
@@ -306,14 +321,15 @@ LRESULT CALLBACK HostWndProc(HWND hwnd, UINT msg, WPARAM wParam,
         case NIN_SELECT:
         case NIN_KEYSELECT:
           // Bấm trái = bật/tắt tiếng Việt, giống thói quen dùng UniKey.
+          //
+          // KHÔNG bắt bấm đúp để mở cấu hình: shell gửi NIN_SELECT trước cả
+          // WM_LBUTTONDBLCLK, nên bấm đúp sẽ vừa đổi chế độ vừa mở hộp
+          // thoại. Cấu hình mở từ menu chuột phải.
           OnCommand(*host, kMenuVietnamese);
           return 0;
         case WM_CONTEXTMENU:
         case WM_RBUTTONUP:
           ShowMenu(*host);
-          return 0;
-        case WM_LBUTTONDBLCLK:
-          OpenConfig(*host);
           return 0;
         default:
           return 0;
@@ -383,7 +399,7 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, LPWSTR commandLine, int) {
 
   INITCOMMONCONTROLSEX icc;
   icc.dwSize = sizeof(icc);
-  icc.dwICC = ICC_STANDARD_CLASSES;
+  icc.dwICC = ICC_STANDARD_CLASSES | ICC_HOTKEY_CLASS;
   InitCommonControlsEx(&icc);
 
   Host host;

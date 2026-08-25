@@ -145,8 +145,13 @@ class CTextService : public ITfTextInputProcessorEx,
   void ApplySettings(const HodionSettings& s);
   void ReloadSettingsIfChanged();
   void SetVietnamese(bool on, bool persist);
-  void RegisterToggleKey();
-  void UnregisterToggleKey();
+  // Đăng ký/gỡ toàn bộ phím tắt kiểu preserved key. Phím hủy biến đổi
+  // KHÔNG nằm trong này: nó chỉ có hiệu lực khi đang gõ dở nên được xử lý
+  // trong ClassifyKey, đăng ký sẽ chiếm mất tổ hợp đó của ứng dụng.
+  void RegisterHotKeys();
+  void UnregisterHotKeys();
+  void RegisterOneKey(REFGUID guid, const ToggleKey& key,
+                      const WCHAR* description);
   // Đồng bộ compartment OPENCLOSE (thanh ngôn ngữ, chỉ báo hệ thống).
   void PushOpenCloseCompartment();
   HRESULT GetOpenCloseCompartment(ITfCompartment** out) const;
@@ -165,7 +170,10 @@ class CTextService : public ITfTextInputProcessorEx,
   hodion::Engine engine_;
   SettingsWatcher watcher_;
   ToggleKey toggleKey_{};
-  bool toggleRegistered_ = false;
+  ToggleKey methodKey_{};
+  ToggleKey predictKey_{};
+  ToggleKey cancelKey_{};
+  bool keysRegistered_ = false;
   bool vietnamese_ = true;
   bool skipInputScopes_ = true;
   bool autoDiacritics_ = false;

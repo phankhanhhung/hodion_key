@@ -21,58 +21,73 @@ IDI_APP     ICON "icons/hodionkey.ico"
 IDI_TRAY_VI ICON "icons/hodionkey-vi.ico"
 IDI_TRAY_EN ICON "icons/hodionkey-en.ico"
 
-IDD_CONFIG DIALOGEX 0, 0, 296, 364
+IDD_CONFIG DIALOGEX 0, 0, 420, 269
 STYLE DS_SETFONT | DS_MODALFRAME | DS_CENTER | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "HodionKey"
 FONT 8, "MS Shell Dlg", 400, 0, 0x1
 BEGIN
-    GROUPBOX        "Input method", IDC_GRP_METHOD, 7, 7, 138, 46
+    // --- cot trai ---
+    GROUPBOX        "Input method", IDC_GRP_METHOD, 7, 7, 200, 46
     CONTROL         "Telex", IDC_METHOD_TELEX, "Button",
-                    BS_AUTORADIOBUTTON | WS_GROUP | WS_TABSTOP, 14, 21, 120, 12
+                    BS_AUTORADIOBUTTON | WS_GROUP | WS_TABSTOP, 14, 21, 186, 12
     CONTROL         "VNI", IDC_METHOD_VNI, "Button",
-                    BS_AUTORADIOBUTTON, 14, 35, 120, 12
+                    BS_AUTORADIOBUTTON, 14, 35, 186, 12
 
-    GROUPBOX        "Tone placement", IDC_GRP_TONE, 151, 7, 138, 46
+    GROUPBOX        "Tone placement", IDC_GRP_TONE, 7, 59, 200, 46
     CONTROL         "Traditional", IDC_TONE_TRADITIONAL, "Button",
-                    BS_AUTORADIOBUTTON | WS_GROUP | WS_TABSTOP, 158, 21, 124, 12
+                    BS_AUTORADIOBUTTON | WS_GROUP | WS_TABSTOP, 14, 73, 186, 12
     CONTROL         "Modern", IDC_TONE_MODERN, "Button",
-                    BS_AUTORADIOBUTTON, 158, 35, 124, 12
+                    BS_AUTORADIOBUTTON, 14, 87, 186, 12
 
-    GROUPBOX        "Options", IDC_GRP_OPTIONS, 7, 59, 282, 92
+    GROUPBOX        "Options", IDC_GRP_OPTIONS, 7, 111, 200, 92
     CONTROL         "Free marking", IDC_OPT_FREEMARKING, "Button",
-                    BS_AUTOCHECKBOX | WS_GROUP | WS_TABSTOP, 14, 73, 268, 12
+                    BS_AUTOCHECKBOX | WS_GROUP | WS_TABSTOP, 14, 125, 186, 12
     CONTROL         "Spell check", IDC_OPT_SPELLCHECK, "Button",
-                    BS_AUTOCHECKBOX | WS_TABSTOP, 14, 88, 268, 12
+                    BS_AUTOCHECKBOX | WS_TABSTOP, 14, 140, 186, 12
     CONTROL         "Restore non-Vietnamese words", IDC_OPT_RESTORE, "Button",
-                    BS_AUTOCHECKBOX | WS_TABSTOP, 14, 103, 268, 12
+                    BS_AUTOCHECKBOX | WS_TABSTOP, 14, 155, 186, 12
     CONTROL         "W shorthand", IDC_OPT_WSHORTHAND, "Button",
-                    BS_AUTOCHECKBOX | WS_TABSTOP, 14, 118, 268, 12
+                    BS_AUTOCHECKBOX | WS_TABSTOP, 14, 170, 186, 12
     CONTROL         "Telex brackets", IDC_OPT_BRACKETS, "Button",
-                    BS_AUTOCHECKBOX | WS_TABSTOP, 14, 133, 268, 12
+                    BS_AUTOCHECKBOX | WS_TABSTOP, 14, 185, 186, 12
 
-    GROUPBOX        "Mixed Vietnamese / English", IDC_GRP_MIXED, 7, 157, 282, 62
+    CONTROL         "Vietnamese input is on", IDC_CHK_VIETNAMESE, "Button",
+                    BS_AUTOCHECKBOX | WS_GROUP | WS_TABSTOP, 14, 210, 190, 12
+    LTEXT           "", IDC_LBL_HINT, 14, 225, 190, 18
+
+    // --- cot phai ---
+    GROUPBOX        "Mixed Vietnamese / English", IDC_GRP_MIXED, 215, 7, 198, 62
     CONTROL         "Skip URL / e-mail / password fields", IDC_OPT_INPUTSCOPE,
                     "Button", BS_AUTOCHECKBOX | WS_GROUP | WS_TABSTOP,
-                    14, 171, 268, 12
+                    222, 21, 184, 12
     CONTROL         "Restore known English words", IDC_OPT_ENGLISH,
-                    "Button", BS_AUTOCHECKBOX | WS_TABSTOP, 14, 186, 268, 12
-    LTEXT           "", IDC_LBL_MIXEDHINT, 14, 202, 268, 10
+                    "Button", BS_AUTOCHECKBOX | WS_TABSTOP, 222, 36, 184, 12
+    LTEXT           "", IDC_LBL_MIXEDHINT, 222, 51, 184, 10
 
-    GROUPBOX        "Automatic diacritics", IDC_GRP_PREDICT, 7, 210, 282, 45
+    GROUPBOX        "Automatic diacritics", IDC_GRP_PREDICT, 215, 73, 198, 45
     CONTROL         "Add diacritics to toneless words", IDC_OPT_AUTODIACRITIC,
                     "Button", BS_AUTOCHECKBOX | WS_GROUP | WS_TABSTOP,
-                    14, 224, 268, 12
-    LTEXT           "", IDC_LBL_PREDICTHINT, 14, 239, 268, 10
+                    222, 87, 184, 12
+    LTEXT           "", IDC_LBL_PREDICTHINT, 222, 102, 184, 10
 
-    GROUPBOX        "Vietnamese on/off", IDC_GRP_TOGGLE, 7, 261, 282, 62
-    LTEXT           "Toggle key:", IDC_LBL_TOGGLE, 14, 277, 80, 10
-    COMBOBOX        IDC_COMBO_TOGGLE, 98, 275, 120, 120,
-                    CBS_DROPDOWNLIST | WS_GROUP | WS_TABSTOP | WS_VSCROLL
-    CONTROL         "Vietnamese input is on", IDC_CHK_VIETNAMESE, "Button",
-                    BS_AUTOCHECKBOX | WS_TABSTOP, 14, 294, 268, 12
-    LTEXT           "", IDC_LBL_HINT, 14, 308, 268, 10
+    GROUPBOX        "Shortcut keys", IDC_GRP_KEYS, 215, 124, 198, 116
+    LTEXT           "Vietnamese / English:", IDC_LBL_KEY_TOGGLE,
+                    222, 139, 74, 10
+    CONTROL         "", IDC_HOTKEY_TOGGLE, "msctls_hotkey32",
+                    WS_GROUP | WS_TABSTOP, 300, 137, 106, 14
+    LTEXT           "Telex / VNI:", IDC_LBL_KEY_METHOD, 222, 157, 74, 10
+    CONTROL         "", IDC_HOTKEY_METHOD, "msctls_hotkey32",
+                    WS_TABSTOP, 300, 155, 106, 14
+    LTEXT           "Automatic diacritics:", IDC_LBL_KEY_PREDICT,
+                    222, 175, 74, 10
+    CONTROL         "", IDC_HOTKEY_PREDICT, "msctls_hotkey32",
+                    WS_TABSTOP, 300, 173, 106, 14
+    LTEXT           "Undo for one word:", IDC_LBL_KEY_CANCEL, 222, 193, 74, 10
+    CONTROL         "", IDC_HOTKEY_CANCEL, "msctls_hotkey32",
+                    WS_TABSTOP, 300, 191, 106, 14
+    LTEXT           "", IDC_LBL_KEYHINT, 222, 210, 184, 26
 
-    PUSHBUTTON      "Defaults", IDC_DEFAULTS, 7, 330, 80, 16, WS_GROUP | WS_TABSTOP
-    DEFPUSHBUTTON   "OK", IDOK, 155, 330, 64, 16, WS_TABSTOP
-    PUSHBUTTON      "Cancel", IDCANCEL, 225, 330, 64, 16, WS_TABSTOP
+    PUSHBUTTON      "Defaults", IDC_DEFAULTS, 7, 246, 80, 16, WS_GROUP | WS_TABSTOP
+    DEFPUSHBUTTON   "OK", IDOK, 279, 246, 64, 16, WS_TABSTOP
+    PUSHBUTTON      "Cancel", IDCANCEL, 349, 246, 64, 16, WS_TABSTOP
 END
