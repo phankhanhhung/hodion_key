@@ -491,23 +491,37 @@ Ba tầng, dùng đúng thứ rẻ nhất giải được việc:
 
 **Chỉ nhìn sang trái khi đang gõ, và đó là quyết định giao diện chứ không
 phải giới hạn kỹ thuật.** Giải mã lại cả câu sau mỗi từ sẽ cho kết quả tốt
-hơn nhiều (94,5% so với 52,9%), nhưng nó làm chữ ĐÃ hiện trên màn hình tự
+hơn nhiều (94,8% so với 64,5%), nhưng nó làm chữ ĐÃ hiện trên màn hình tự
 đổi sau lưng người dùng. Cái đó khó chịu hơn hẳn đoán sai — nên chữ đã chốt
 là chốt, và ta chịu mất phần chính xác đó.
 
-**Ngưỡng tin cậy.** Đo trên 40.324 âm tiết của phần kho văn bản không dùng
+**Ngưỡng tin cậy.** Đo trên 615.578 âm tiết của phần kho văn bản không dùng
 để train:
 
 | ngưỡng | có đổi chữ | đúng khi đổi | đúng chung |
 |---|---|---|---|
-| 0 (đoán mọi chỗ) | 89,5% | 85,2% | 85,5% |
-| 1,0 | 60,3% | 90,8% | 65,4% |
-| **2,0 (mặc định)** | 43,3% | **95,6%** | 52,9% |
+| 0 (đoán mọi chỗ) | 88,2% | 85,9% | 86,2% |
+| 1,0 | 69,9% | 92,7% | 76,5% |
+| **2,0 (mặc định)** | 53,9% | **96,5%** | 64,5% |
 
 Mặc định là 2,0 chứ không phải 0, dù 0 cho "đúng chung" cao hơn hẳn. Với
 một bộ gõ, **đổi sai tệ hơn không đổi**: chữ còn không dấu thì người dùng
 nhìn thấy ngay và sửa, chữ sai dấu thì trông như đã xong và lọt qua. Ngưỡng
 0 sai 1 trong 7 lần nó ra tay — đủ để mất niềm tin vào cả tính năng.
+
+**Ngưỡng so với cái gì.** Khoảng cách được đo với phương án **nhì**, và
+biến giữ phương án nhì phải bắt đầu ở "chưa có" chứ không phải ở điểm của
+phương án đầu tiên. Chỗ này từng sai đúng một dòng: `second` được gán bằng
+`best` ngay ở vòng lặp đầu, nên mỗi khi phương án tốt nhất tình cờ đứng
+đầu danh sách thì khoảng cách ra 0 và mô hình không bao giờ dám đổi. Nó
+không hỏng ồn ào — nó chỉ **im lặng ở một nửa số trường hợp**, mà im lặng
+lại đúng là hành vi hợp lệ của hàm này, nên không test nào thấy. Sửa xong,
+trên cùng bộ dữ liệu: có đổi chữ 44,2% → **53,9%**, đúng khi đổi 95,8% →
+**96,5%** — tốt lên ở cả hai đầu, dấu hiệu rõ là lỗi chứ không phải một
+đánh đổi. Nay có test riêng cho trường hợp "phương án tốt nhất đứng đầu".
+
+Không có phương án nhì nào (mô hình chỉ biết đúng một cách viết trong số
+các cách viết có thật) thì không có gì để cân đo — cứ theo nó.
 
 ### Mô hình 3-gram (`ngram.cpp`)
 

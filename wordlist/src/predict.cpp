@@ -71,22 +71,33 @@ std::u32string restore_in_context(const std::vector<std::u32string>& left,
   const int a = n >= 2 ? model.id(left[n - 2]) : model.bos();
   const int b = n >= 1 ? model.id(left[n - 1]) : model.bos();
 
+  // `second` phải bắt đầu ở "chưa có", KHÔNG phải ở điểm của phương án
+  // đầu tiên: gán second = best ngay từ đầu thì khoảng cách luôn bằng 0 khi
+  // phương án tốt nhất tình cờ đứng đầu danh sách, và mô hình không bao giờ
+  // dám quyết ở đúng một nửa số trường hợp.
   float best = 0, second = 0;
+  bool has_second = false;
   const std::u32string* winner = nullptr;
   for (const std::u32string& c : candidates) {
     const int cid = model.id(c);
     if (cid == NgramModel::kNoWord) continue;
     const float s = model.score(a, b, cid);
     if (!winner || s > best) {
-      second = winner ? best : s;
+      if (winner) {
+        second = best;
+        has_second = true;
+      }
       best = s;
       winner = &c;
-    } else if (s > second || !winner) {
+    } else if (!has_second || s > second) {
       second = s;
+      has_second = true;
     }
   }
   if (!winner) return {};
-  if (best - second < margin) return {};  // gần như hoà → không quyết
+  // Không có phương án nhì nghĩa là mô hình chỉ biết đúng một cách viết —
+  // không có gì để cân đo, cứ theo nó.
+  if (has_second && best - second < margin) return {};  // gần như hoà
   if (*winner == word) return {};          // không có gì để đổi
   return *winner;
 }

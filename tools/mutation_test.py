@@ -26,7 +26,28 @@ import tempfile
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ENGINE_SRC = os.path.join(ROOT, "engine", "src")
 ENGINE_TESTS = os.path.join(ROOT, "engine", "tests")
-INCLUDES = ["-I", os.path.join(ROOT, "engine", "include"), "-I", ENGINE_SRC]
+WORDLIST_SRC = os.path.join(ROOT, "wordlist", "src")
+WORDLIST_TESTS = os.path.join(ROOT, "wordlist", "tests")
+
+# Hai tầng, hai bộ test riêng. `mutate` là nơi gieo lỗi; `link` là những
+# thứ chỉ cần có mặt để dịch được — gieo lỗi vào engine ở mục tiêu wordlist
+# là đo lại đúng thứ mục tiêu engine đã đo.
+TARGETS = {
+    "engine": {
+        "mutate": [ENGINE_SRC],
+        "link": [ENGINE_TESTS],
+        "includes": [os.path.join(ROOT, "engine", "include"), ENGINE_SRC],
+    },
+    "wordlist": {
+        "mutate": [WORDLIST_SRC],
+        "link": [ENGINE_SRC, WORDLIST_TESTS],
+        "includes": [os.path.join(ROOT, "engine", "include"), ENGINE_SRC,
+                     os.path.join(ROOT, "wordlist", "include"), WORDLIST_SRC,
+                     os.path.join(ROOT, "wordlist", "data")],
+    },
+}
+
+INCLUDES = []
 BASE_CXXFLAGS = ["-std=c++17", "-O0", "-w"]
 
 # Bật sanitizer để bắt cả những mutant chỉ gây lỗi bộ nhớ (đọc lố mảng,
@@ -126,16 +147,19 @@ def generate_mutations(paths):
     return mutations
 
 
-def build_baseline(workdir):
-    """Dịch sẵn các object không đổi (test và engine gốc) để mutant chỉ phải
+def cpp_files(dirs):
+    out = []
+    for d in dirs:
+        out += [os.path.join(d, f) for f in sorted(os.listdir(d))
+                if f.endswith(".cpp")]
+    return out
+
+
+def build_baseline(workdir, sources):
+    """Dịch sẵn các object không đổi (test và nguồn gốc) để mutant chỉ phải
     dịch lại đúng một file."""
     obj_dir = os.path.join(workdir, "base")
     os.makedirs(obj_dir, exist_ok=True)
-
-    sources = ([os.path.join(ENGINE_SRC, f) for f in sorted(os.listdir(ENGINE_SRC))
-                if f.endswith(".cpp")] +
-               [os.path.join(ENGINE_TESTS, f) for f in sorted(os.listdir(ENGINE_TESTS))
-                if f.endswith(".cpp")])
 
     objects = {}
     for src in sources:
@@ -199,6 +223,8 @@ def main():
                         help="chỉ chạy N mutant lấy mẫu ngẫu nhiên (0 = tất cả)")
     parser.add_argument("--files", nargs="*", default=None,
                         help="chỉ gieo lỗi vào các file này (tên cơ sở)")
+    parser.add_argument("--target", choices=sorted(TARGETS), default="engine",
+                        help="tầng nào: engine (mặc định) hay wordlist")
     parser.add_argument("--jobs", type=int, default=os.cpu_count() or 2)
     parser.add_argument("--timeout", type=int, default=120)
     parser.add_argument("--seed", type=int, default=20260823)
@@ -207,14 +233,16 @@ def main():
                              "mutant chỉ gây lỗi bộ nhớ (chậm hơn ~3 lần)")
     args = parser.parse_args()
 
-    global CXXFLAGS, LDFLAGS
+    global CXXFLAGS, LDFLAGS, INCLUDES
+    target = TARGETS[args.target]
+    INCLUDES = [flag for inc in target["includes"] for flag in ("-I", inc)]
+
     if args.asan:
         CXXFLAGS = list(BASE_CXXFLAGS) + SANITIZE_FLAGS
         LDFLAGS = ["-fsanitize=address,undefined"]
         print("Bật AddressSanitizer + UBSan (chậm hơn nhiều).")
 
-    paths = [os.path.join(ENGINE_SRC, f) for f in sorted(os.listdir(ENGINE_SRC))
-             if f.endswith(".cpp")]
+    paths = cpp_files(target["mutate"])
     if args.files:
         wanted = set(args.files)
         paths = [p for p in paths if os.path.basename(p) in wanted]
@@ -230,7 +258,7 @@ def main():
     workdir = tempfile.mkdtemp(prefix="hodion-mutation-")
     try:
         print("Dịch sẵn object nền…")
-        objects = build_baseline(workdir)
+        objects = build_baseline(workdir, paths + cpp_files(target["link"]))
 
         baseline_bin = os.path.join(workdir, "baseline_tests")
         subprocess.run(["g++"] + list(objects.values()) + LDFLAGS +

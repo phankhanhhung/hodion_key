@@ -68,14 +68,17 @@ tái hiện. Chạy soak lâu hơn và xem thống kê:
 HODION_FUZZ_ROUNDS=200000 HODION_FUZZ_STATS=1 ./build/engine/hodion_engine_tests
 ```
 
-Chất lượng bộ test: độ phủ **98% dòng / 81% nhánh**, điểm **mutation testing
-86,9%** (gieo lỗi vào engine rồi xem test có bắt không — thước đo thật, vì
-phủ 97% dòng mà mutation vẫn từng tìm ra 130 lỗ hổng), và engine sạch dưới
-**AddressSanitizer + UBSan** qua hơn 11 triệu lượt kiểm tra. Chi tiết ở
+Chất lượng bộ test: độ phủ **98% dòng / 79% nhánh**, điểm **mutation testing
+86,9%** cho engine và **84,6%** cho tầng từ điển/đoán dấu (gieo lỗi vào code
+rồi xem test có bắt không — thước đo thật, vì phủ 97% dòng mà mutation vẫn
+từng tìm ra 130 lỗ hổng, và lần mở đo tầng thứ hai thì nó lôi ra một lỗi
+đang chạy trong bản phát hành), và engine sạch dưới **AddressSanitizer +
+UBSan** qua hơn 11 triệu lượt kiểm tra. Chi tiết ở
 [docs/mutation-testing.md](docs/mutation-testing.md):
 
 ```sh
 python3 tools/mutation_test.py --asan                    # mutation testing
+python3 tools/mutation_test.py --asan --target wordlist  # tầng từ điển
 gcovr --root . --filter 'engine/src/' --filter 'wordlist/src/' \
       --txt --branches                                   # độ phủ
 ```
@@ -307,15 +310,15 @@ duong   →  duong         (để nguyên: 7 cách viết có thật)
 còn lại cần ngữ cảnh, và đó là việc của **mô hình 3-gram**: khi có nó,
 `buoi toi` ra *buổi tối* còn `toi qua duong` ra *tôi qua đường*.
 
-Đo trên 40.324 âm tiết của phần kho văn bản **không dùng để train** (98,2%
+Đo trên 615.578 âm tiết của phần kho văn bản **không dùng để train** (97,7%
 số chỗ là nhập nhằng):
 
 | | có đổi chữ | đúng khi đổi | đúng chung |
 |---|---|---|---|
-| Không mô hình (chỉ chỗ duy nhất) | 1,8% | 100% | 12,5% |
-| Có mô hình, ngưỡng 0 (đoán mọi chỗ) | 89,5% | 85,2% | 85,5% |
-| Có mô hình, **ngưỡng 2,0 (mặc định)** | 43,3% | **95,6%** | 52,9% |
-| Cả câu, Viterbi (cho reconversion) | — | — | **94,5%** |
+| Không mô hình (chỉ chỗ duy nhất) | 2,3% | 100% | 14,0% |
+| Có mô hình, ngưỡng 0 (đoán mọi chỗ) | 88,2% | 85,9% | 86,2% |
+| Có mô hình, **ngưỡng 2,0 (mặc định)** | 53,9% | **96,5%** | 64,5% |
+| Cả câu, Viterbi (cho reconversion) | — | — | **94,8%** |
 
 Mặc định chọn ngưỡng 2,0 chứ không phải 0, dù ngưỡng 0 cho "đúng chung" cao
 hơn nhiều. Lý do: với một bộ gõ, **đổi sai tệ hơn là không đổi**. Chữ còn
@@ -324,7 +327,7 @@ xong và lọt qua. Ngưỡng 0 làm sai 1 trong 7 lần nó ra tay — đủ đ
 tin vào cả tính năng. Chỉnh bằng `PredictMargin` trong registry nếu muốn
 đánh đổi khác.
 
-Chênh lệch giữa 52,9% (lúc gõ) và 94,5% (cả câu) là cái giá của việc **chỉ
+Chênh lệch giữa 64,5% (lúc gõ) và 94,8% (cả câu) là cái giá của việc **chỉ
 nhìn sang trái**. Lúc gõ thì chữ bên phải chưa tồn tại, và giải mã lại cả
 câu sau mỗi từ sẽ làm chữ đã hiện trên màn hình tự đổi sau lưng người dùng —
 khó chịu hơn hẳn đoán sai. Chữ đã chốt là chốt.
@@ -430,7 +433,7 @@ phím trần sẽ nuốt mất phím đó khi gõ — nên nó tự quay về m�
 - [x] Gõ trộn Việt–Anh: tự tắt theo input scope + phím bỏ dấu cho một từ
 - [x] Gõ trộn Việt–Anh: từ điển Anh quyết định lúc chốt từ
 - [x] Tiến trình nền làm host cho logic nặng (named pipe, hạn cứng 20 ms)
-- [x] Tự thêm dấu cho chữ không dấu: mô hình 3-gram, 95,6% đúng khi ra tay
+- [x] Tự thêm dấu cho chữ không dấu: mô hình 3-gram, 96,5% đúng khi ra tay
 - [x] Phím xoay vòng qua các phương án dấu (xếp theo ngữ cảnh trái)
 - [ ] Chỉ báo độ tin cậy khi bộ gõ tự thêm dấu
 - [x] Reconversion — sửa từ đã chốt không phải gõ lại

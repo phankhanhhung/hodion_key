@@ -315,11 +315,11 @@ Mục 6a giữ đúng ba điều đã bàn ở mục 6: áp phương án tốt n
 một phím xoay vòng để đổi, và chuỗi không dấu gốc luôn có trong vòng —
 phần còn thiếu chỉ là chỉ báo trực quan cho từ mô hình không chắc (6b).
 
-Về mục 5, đo được sau khi làm xong (40.324 âm tiết ngoài dữ liệu train):
-Viterbi cả câu **94,5%** — đúng khoảng dự đoán 94–96% ở mục 3 bên trên. Còn
-lúc đang gõ, vì chỉ nhìn được sang trái, con số là **52,9%** ở ngưỡng mặc
-định, và **95,6%** trong số những lần nó thật sự ra tay. Chênh lệch giữa
-94,5% và 52,9% chính là cái giá của ràng buộc "không đổi chữ sau lưng người
+Về mục 5, đo được sau khi làm xong (615.578 âm tiết ngoài dữ liệu train):
+Viterbi cả câu **94,8%** — đúng khoảng dự đoán 94–96% ở mục 3 bên trên. Còn
+lúc đang gõ, vì chỉ nhìn được sang trái, con số là **64,5%** ở ngưỡng mặc
+định, và **96,5%** trong số những lần nó thật sự ra tay. Chênh lệch giữa
+94,8% và 64,5% chính là cái giá của ràng buộc "không đổi chữ sau lưng người
 dùng" đã bàn ở mục 3 — nó có thật và nó lớn.
 
 Ba điều rút ra khi làm, đáng ghi lại vì chúng đổi cách nghĩ về mục 5–6:

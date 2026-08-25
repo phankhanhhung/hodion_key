@@ -9,9 +9,16 @@ python3 tools/mutation_test.py --asan          # con số chuẩn (~25 phút, 4 
 python3 tools/mutation_test.py                 # nhanh hơn ~3 lần, để lặp nhanh
 python3 tools/mutation_test.py --limit 60      # lấy mẫu cho nhanh
 python3 tools/mutation_test.py --files word.cpp
+python3 tools/mutation_test.py --target wordlist   # tầng từ điển + đoán dấu
 ```
 
-Công cụ gieo lỗi vào `engine/src/*.cpp`: đảo toán tử so sánh (`==`↔`!=`,
+Hai tầng có bộ test riêng nên đo riêng: `--target engine` (mặc định) gieo
+lỗi vào `engine/src/*.cpp` và chạy `engine/tests`; `--target wordlist` gieo
+vào `wordlist/src/*.cpp` và chạy `wordlist/tests`. Nguồn của tầng kia vẫn
+được dịch để link, nhưng **không** bị gieo lỗi — làm thế là đo lại đúng thứ
+mục tiêu kia đã đo.
+
+Công cụ gieo lỗi bằng cách đảo toán tử so sánh (`==`↔`!=`,
 `<`↔`<=`, `>`↔`>=`), đảo `&&`↔`||`, lật giá trị trả về, lệch hằng số
 (`+1`↔`-1`). Mỗi mutant được dịch lại và chạy **toàn bộ** bộ test; mutant
 bị test bắt gọi là "chết", mutant **sống sót** là một thay đổi hành vi mà
@@ -84,6 +91,70 @@ Viết test cho `reconvert.cpp` còn lộ ra một lỗi thật của tính năn
 phím xoá thanh của Telex nên engine không coi "zan" là từ hỏng, và danh
 sách phương án vì thế đề xuất cả "zán", "zàn" — trong khi tiếng Việt không
 có chữ z. Nay bộ lọc chữ cái của reconversion loại thẳng f, j, w, z.
+
+### Đợt tầng `wordlist` (từ điển Anh + đoán dấu)
+
+Tầng này có bộ test riêng nên trước đó **chưa từng được đo** — công cụ chỉ
+biết `engine/src`. Mở `--target wordlist` ra là thấy ngay khoảng cách:
+
+| Lần chạy | Điểm mutation | Sống sót |
+|---|---|---|
+| Bộ test lúc mở đo lần đầu | 66,9% | 47 |
+| + test bịt lỗ hổng nó chỉ ra | 81,1% | 27 |
+| + AddressSanitizer & UBSan | **84,6%** | **22** |
+
+Và nó chỉ ra một **lỗi thật, đang chạy trong bản phát hành**, không phải
+một lỗ hổng test suông:
+
+**Phương án "nhì" được khởi tạo bằng chính phương án nhất.** `restore_in_context`
+quyết định dựa trên khoảng cách điểm giữa phương án tốt nhất và phương án
+nhì. Biến giữ phương án nhì lại được gán bằng `best` ngay ở vòng lặp đầu
+tiên, nên mỗi khi phương án tốt nhất tình cờ đứng đầu danh sách thì khoảng
+cách ra đúng 0 và mô hình không bao giờ dám đổi chữ. Lỗi này **không hỏng
+ồn ào**: im lặng là một hành vi hợp lệ của hàm (ngưỡng tin cậy sinh ra để
+im lặng), nên bộ test cũ — vốn chỉ có một ca mà phương án thắng tình cờ
+đứng cuối — không thấy gì. Đo lại trên cùng 615.578 âm tiết:
+
+| | có đổi chữ | đúng khi đổi | đúng chung |
+|---|---|---|---|
+| Trước khi sửa | 44,2% | 95,8% | 55,1% |
+| Sau khi sửa | **53,9%** | **96,5%** | **64,5%** |
+
+Tốt lên ở *cả hai* đầu — dấu hiệu rõ ràng đây là lỗi chứ không phải một
+đánh đổi giữa độ phủ và độ chính xác.
+
+Những lỗ hổng còn lại đã bịt, cùng một kiểu "nhánh có thật mà không test
+nào phân biệt":
+
+- **id 0 là một id thật.** `<s>` xếp đầu từ vựng nên nó luôn mang id 0, mà
+  bộ train thì sinh cả bigram `(<s>,<s>)` lẫn trigram `(<s>,<s>,x)` cho đầu
+  câu. Đổi `b < 0` thành `b <= 0` ở chỗ tra cứu vẫn sống — nghĩa là không
+  test nào chấm điểm cho một n-gram dính id 0, tức là **cả phần đầu câu
+  chưa từng được kiểm**.
+- **Ngữ cảnh ngoài từ vựng.** Đổi `return false` thành `return true` ở chốt
+  chặn của `lookup_bigram`/`lookup_trigram` vẫn sống: hàm trả về "tra thấy"
+  mà không ghi giá trị ra, nên điểm thành 0 — điểm **cao nhất có thể**, thắng
+  mọi phương án thật. Đây là ca xảy ra liên tục lúc gõ (tên riêng, chữ nước
+  ngoài đứng trước), mà không test nào chạm tới.
+- **Ngữ cảnh đúng hai từ.** `n >= 2` đổi thành `n > 2` vẫn sống ở cả đường
+  đoán dấu lẫn đường xếp hạng: không test nào đưa vào đúng hai từ ngữ cảnh,
+  nên phần trigram — thứ đắt nhất của mô hình — chưa từng được dùng tới.
+- **Viterbi ba từ.** Bộ test cũ chỉ có câu hai từ, nên trạng thái (âm tiết
+  trước, âm tiết này) và cả đoạn lần ngược đường đi chưa bao giờ chạy thật.
+- **Bộ nạp file.** Cắt file theo bước 7 byte bỏ sót nhiều chốt chặn; nay cắt
+  từng byte một. Thêm ca khoá bigram/trigram không xếp tăng dần (tra cứu là
+  tìm nhị phân, khoá lộn xộn là ra kết quả bậy chứ không phải chạy chậm),
+  mục từ vựng rỗng, và biên 65535/65536 mục — id đóng gói trong 16 bit nên
+  đúng chỗ đó là chỗ tràn.
+- **Ghi lố mảng trong Viterbi.** `j < options[i].size()` đổi thành `<=` chỉ
+  chết dưới `--asan`, y như nhóm mutant bộ nhớ của engine.
+
+22 mutant còn sống đều thuộc ba nhóm "không giết được" nói ở mục dưới, cộng
+thêm hai nhóm riêng của tầng này: **hoà điểm tuyệt đối** (chọn cái nào cũng
+đúng — `if (s > best)` thành `>=` chỉ đổi cái được chọn khi hai đường đi
+bằng điểm nhau chằn chặn) và **mutant làm hỏng chính phép so sánh** (đổi
+`>` thành `>=` trong hàm so sánh của `stable_sort` tạo ra một thứ tự không
+hợp lệ — hành vi không xác định, không phải một hành vi khác).
 
 ## Vì sao không đuổi tới 100%
 
@@ -161,7 +232,7 @@ gcovr --root . --filter 'engine/src/' --filter 'engine/include/' \
 | Thước đo            | Ban đầu | Sau khi bịt lỗ hổng | Nay (kèm gõ trộn + reconversion) |
 |---------------------|---------|---------------------|----------------------------------|
 | Dòng (line)         | 97%     | 99%                 | 98%                              |
-| Nhánh (branch)      | 80%     | 81%                 | 81%                              |
+| Nhánh (branch)      | 80%     | 81%                 | 79%                              |
 | Mutation            | 73,0%   | 83,4%               | xem bảng trên                    |
 
 Dòng tụt từ 99% xuống 98% không phải vì mất test: hai "dòng chưa chạy" mới
@@ -169,6 +240,11 @@ Dòng tụt từ 99% xuống 98% không phải vì mất test: hai "dòng chưa 
 ngoại lệ mà chương trình không bao giờ đi vào (`strip_diacritics` chạy
 56.174 lần, dòng thân hàm phủ 100%, chỉ dấu `}` là `=====`). File nhỏ nên
 hai dòng đó đủ kéo tổng xuống 1%.
+
+Nhánh tụt xuống 79% là do tầng `wordlist` mới vào bảng: `predict.cpp` (72%)
+và `ngram.cpp` (79%) kéo tổng xuống, phần lớn là chốt chặn phòng thủ của bộ
+nạp file — mỗi cái đều có một chiều không bao giờ đi vào khi file đúng. Đợt
+test bịt lỗ hổng mutation vừa rồi kéo nó từ 78% lên 79%; sàn CI là 78%.
 
 Ba con số này nói ba chuyện khác nhau, và đó chính là lý do không nên nhìn
 mỗi coverage: **bộ test cũ đã phủ 97% số dòng nhưng mutation vẫn tìm ra 130

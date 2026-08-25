@@ -362,8 +362,10 @@ int main() {
     Check(!model.load(toy.Serialize("XXXX")), "sai magic");
     Check(!model.load(toy.Serialize("HKNG", 99)), "sai phiên bản");
     {
+      // Cắt ở TỪNG byte một, không nhảy bước: mỗi lần đọc trong bộ nạp là
+      // một chốt chặn riêng, nhảy bước thì có chốt không lần nào bị thử.
       const std::string full = toy.Serialize();
-      for (size_t cut = 1; cut < full.size(); cut += 7) {
+      for (size_t cut = 1; cut < full.size(); ++cut) {
         if (model.load(full.substr(0, cut))) {
           Check(false, "nhận một file bị cắt cụt");
           break;
@@ -384,6 +386,42 @@ int main() {
       std::reverse(unsorted.vocab.begin(), unsorted.vocab.end());
       Check(!model.load(unsorted.Serialize()), "từ vựng không xếp tăng dần");
     }
+    {
+      // Tra cứu là tìm nhị phân, nên khoá KHÔNG xếp tăng dần là file hỏng
+      // chứ không phải file chậm — nhận vào là tra ra kết quả bậy.
+      MiniModel bad = toy;
+      bad.bigram = {{7u, -0.1f}, {3u, -0.2f}};
+      Check(!model.load(bad.Serialize()), "khoá bigram không xếp tăng dần");
+    }
+    {
+      MiniModel bad = toy;
+      bad.trigram = {{9ull, -0.1f}, {2ull, -0.2f}};
+      Check(!model.load(bad.Serialize()), "khoá trigram không xếp tăng dần");
+    }
+    {
+      // Từ rỗng: độ dài 0 đọc được nhưng không phải một âm tiết.
+      MiniModel bad = toy;
+      bad.vocab.insert(bad.vocab.begin(), "");
+      bad.unigram.assign(bad.vocab.size(), -6.0f);
+      Check(!model.load(bad.Serialize()), "từ vựng có mục rỗng");
+    }
+    {
+      // Biên số mục từ vựng: id được đóng gói trong 16 bit nên 65535 mục là
+      // vừa đủ, 65536 thì tràn. Dựng thẳng hai file để chốt đúng chỗ rẽ.
+      const auto make = [](uint32_t count) {
+        MiniModel big;
+        big.vocab.reserve(count);
+        for (uint32_t i = 0; i < count; ++i) {
+          char buf[8];
+          std::snprintf(buf, sizeof(buf), "a%05u", i);  // rộng cố định → đã xếp
+          big.vocab.emplace_back(buf);
+        }
+        big.unigram.assign(count, -6.0f);
+        return big.Serialize();
+      };
+      Check(model.load(make(65535)), "65535 mục từ vựng vẫn nạp được");
+      Check(!model.load(make(65536)), "65536 mục thì từ chối");
+    }
 
     // --- Nạp được và tra đúng ---
     const int s_bos = ToyId(toy, "<s>");
@@ -395,9 +433,23 @@ int main() {
     toy.bigram.push_back({(uint32_t(s_buoi) << 16) | uint32_t(s_toi2), -0.2f});
     toy.bigram.push_back({(uint32_t(s_bos) << 16) | uint32_t(s_toi), -0.5f});
     toy.bigram.push_back({(uint32_t(s_toi) << 16) | uint32_t(s_qua), -0.3f});
+    toy.bigram.push_back({(uint32_t(s_buoi) << 16) | uint32_t(s_toi), -1.0f});
+    toy.bigram.push_back({(uint32_t(s_qua) << 16) | uint32_t(s_toi), -0.1f});
+    // Bộ train sinh cả bigram (<s>,<s>) cho đầu câu, tức là có n-gram mà
+    // id bằng 0 ở CẢ HAI đầu. Chỗ nào coi 0 là "không có" thì câu đầu tiên
+    // hỏng mà không ai thấy.
+    toy.bigram.push_back({(uint32_t(s_bos) << 16) | uint32_t(s_bos), -0.4f});
     std::sort(toy.bigram.begin(), toy.bigram.end());
     toy.trigram.push_back({(uint64_t(s_bos) << 32) | (uint64_t(s_buoi) << 16) |
                                uint64_t(s_toi2), -0.1f});
+    toy.trigram.push_back({(uint64_t(s_bos) << 32) | (uint64_t(s_bos) << 16) |
+                               uint64_t(s_buoi), -0.1f});
+    toy.trigram.push_back({(uint64_t(s_toi) << 32) | (uint64_t(s_qua) << 16) |
+                               uint64_t(s_toi2), -0.05f});
+    toy.trigram.push_back({(uint64_t(s_buoi) << 32) | (uint64_t(s_toi2) << 16) |
+                               uint64_t(s_qua), -0.3f});
+    toy.trigram.push_back({(uint64_t(s_buoi) << 32) | (uint64_t(s_toi) << 16) |
+                               uint64_t(s_qua), -0.02f});
     std::sort(toy.trigram.begin(), toy.trigram.end());
 
     Check(model.load(toy.Serialize()), "nạp được mô hình đồ chơi");
@@ -409,6 +461,31 @@ int main() {
           "chữ ngoài từ vựng trả kNoWord");
     Check(model.bos() == s_bos, "tìm được mốc đầu câu");
 
+    // --- id 0 là một id THẬT, không phải giá trị canh chừng ---
+    // "<s>" xếp đầu từ vựng nên nó luôn mang id 0. Nếu chỗ tra cứu nào coi
+    // 0 là "không có từ" thì mọi thứ dính tới đầu câu lặng lẽ hỏng.
+    Check(s_bos == 0, "<s> mang id 0");
+    Check(model.score(s_bos, s_bos, s_buoi) > -0.15f,
+          "trigram đầu câu (<s>,<s>,x) tra được dù hai id đầu bằng 0");
+    Check(model.score(s_qua, s_bos, s_toi) > -2.0f,
+          "bigram có id 0 ở giữa vẫn tra được");
+    Check(model.score(s_qua, s_bos, s_bos) > -2.0f,
+          "bigram có id 0 ở cả hai đầu vẫn tra được");
+    Check(model.score(s_qua, s_qua, s_bos) > -10.0f,
+          "unigram của id 0 không bị coi là chưa gặp");
+
+    // Ngữ cảnh KHÔNG có trong từ vựng là chuyện thường ngày (tên riêng, chữ
+    // nước ngoài, âm tiết hiếm). Phải lùi bậc, chứ không được coi như tra
+    // thấy rồi trả về điểm 0 — điểm 0 là điểm CAO NHẤT có thể, nó sẽ thắng
+    // mọi phương án thật.
+    const int s_none = hodion::NgramModel::kNoWord;
+    Check(model.score(s_none, s_buoi, s_toi2) < -0.5f,
+          "từ xa ngoài từ vựng thì lùi về bigram");
+    Check(model.score(s_qua, s_none, s_toi2) < -5.0f,
+          "từ liền trước ngoài từ vựng thì lùi về unigram");
+    Check(model.score(s_qua, s_buoi, s_none) < -10.0f,
+          "chính chữ cần chấm ngoài từ vựng thì điểm rất thấp");
+
     // Trigram có sẵn thì dùng thẳng; thiếu thì lùi bậc và bị phạt.
     Check(model.score(s_bos, s_buoi, s_toi2) > -0.15f, "trigram dùng thẳng");
     const float bi = model.score(s_qua, s_buoi, s_toi2);   // chỉ có bigram
@@ -418,7 +495,8 @@ int main() {
 
     // --- Đoán theo ngữ cảnh trái ---
     hodion::SyllableList toyKnown;
-    Check(toyKnown.load("buổi\ntối\ntôi\nqua\n"), "bảng âm tiết đồ chơi");
+    Check(toyKnown.load("buổi\ntối\ntôi\nqua\nquá\n"),
+          "bảng âm tiết đồ chơi");
     hodion::Config cfg;
     // "toi" một mình: mô hình không có bằng chứng nghiêng hẳn → im lặng.
     // Sau "buổi" thì trigram nói rõ là "tối".
@@ -437,6 +515,33 @@ int main() {
                                              toyKnown, none)
                       .empty());
     }
+
+    // Phương án tốt nhất đứng ĐẦU danh sách cũng phải quyết được. Chỗ này
+    // từng hỏng: "phương án nhì" được khởi tạo bằng chính phương án đầu,
+    // nên khi cái đầu thắng luôn thì khoảng cách ra 0 và mô hình không bao
+    // giờ dám đổi — im lặng, và im đúng một nửa số trường hợp.
+    // Đầu câu thì "tôi" thắng (có bigram <s>→tôi), mà "tôi" lại là phương
+    // án đầu tiên engine sinh ra.
+    EXPECT_EQ(S(hodion::restore_in_context({}, U("toi"), cfg, toyKnown, model,
+                                           1.0f)),
+              std::string("tôi"));
+
+    // Ngữ cảnh ĐÚNG HAI từ phải dùng tới trigram, không phải chỉ từ liền
+    // trước: "tôi qua" + "toi" ra "tối" nhờ trigram (tôi,qua,tối); bỏ từ
+    // xa đi thì bigram (qua,tôi) sẽ thắng và ra "tôi".
+    {
+      const std::vector<std::u32string> two = {U("tôi"), U("qua")};
+      EXPECT_EQ(S(hodion::restore_in_context(two, U("toi"), cfg, toyKnown,
+                                             model, 0.5f)),
+                std::string("tối"));
+    }
+
+    // Hoà điểm thì giữ phương án ĐẦU (thứ tự của engine: ít dấu trước),
+    // không phải phương án cuối. Sau "tối" thì cả tôi lẫn tối đều không có
+    // trong mô hình nên điểm bằng nhau.
+    EXPECT_EQ(S(hodion::restore_in_context({U("tối")}, U("toi"), cfg, toyKnown,
+                                           model, 0.0f)),
+              std::string("tôi"));
 
     // --- Xếp hạng phương án cho phím xoay vòng ---
     {
@@ -473,6 +578,16 @@ int main() {
       Check(hodion::rank_candidates({}, U(""), cfg, toyKnown, model).empty(),
             "chuỗi rỗng thì không có phương án");
 
+      // Ngữ cảnh hai từ cũng phải tới được trigram ở đường xếp hạng, y như
+      // ở đường đoán dấu.
+      {
+        const std::vector<std::u32string> two = {U("tôi"), U("qua")};
+        const auto ranked2 =
+            hodion::rank_candidates(two, U("toi"), cfg, toyKnown, model);
+        Check(!ranked2.empty() && ranked2.at(0) == U("tối"),
+              "xếp hạng dùng cả từ đứng xa, không chỉ từ liền trước");
+      }
+
       // Không có mô hình vẫn xoay được, chỉ là không xếp theo ngữ cảnh.
       hodion::NgramModel none;
       const auto plain =
@@ -489,6 +604,43 @@ int main() {
             "xoay từ chữ đã có dấu vẫn thấy các anh em của nó");
     }
 
+    // --- "Phương án nhì" phải là phương án nhì THẬT ---
+    // Ngưỡng tin cậy đo khoảng cách giữa nhất và nhì. Nếu chỗ giữ phương án
+    // nhì chỉ nhận cái ĐẦU TIÊN thua cuộc thay vì cái tốt nhất trong đám
+    // thua, khoảng cách sẽ bị thổi phồng và mô hình đổi chữ ở đúng những
+    // chỗ đáng ra phải im.
+    {
+      hodion::SyllableList three;
+      Check(three.load("tòi\ntôi\ntối\n"), "bảng ba phương án");
+      MiniModel m3;
+      m3.vocab = {"<s>", "tòi", "tôi", "tối"};
+      std::sort(m3.vocab.begin(), m3.vocab.end(),
+                [](const std::string& a, const std::string& b) {
+                  return hodion::utf::from_utf8(a) < hodion::utf::from_utf8(b);
+                });
+      m3.unigram.assign(m3.vocab.size(), -6.0f);
+      const int b0 = ToyId(m3, "<s>");
+      // Engine sinh theo thứ tự tòi, tôi, tối. Đặt cho cái ĐẦU thắng, cái
+      // GIỮA bét, cái CUỐI đứng nhì — có thế mới phân biệt được hai cách
+      // hiểu "phương án nhì".
+      m3.bigram.push_back(
+          {(uint32_t(b0) << 16) | uint32_t(ToyId(m3, "tòi")), -0.05f});
+      m3.bigram.push_back(
+          {(uint32_t(b0) << 16) | uint32_t(ToyId(m3, "tối")), -1.6f});
+      std::sort(m3.bigram.begin(), m3.bigram.end());
+
+      hodion::NgramModel model3;
+      Check(model3.load(m3.Serialize()), "nạp được mô hình ba phương án");
+      // Cách nhì đúng 1,55 điểm → ngưỡng 2,0 phải im.
+      EXPECT_TRUE(
+          hodion::restore_in_context({}, U("toi"), cfg, three, model3, 2.0f)
+              .empty());
+      // Ngưỡng nới ra thì mới quyết, và quyết đúng cái thắng.
+      EXPECT_EQ(S(hodion::restore_in_context({}, U("toi"), cfg, three, model3,
+                                             1.0f)),
+                std::string("tòi"));
+    }
+
     // --- Viterbi cả câu ---
     {
       const std::vector<std::u32string> bare = {U("buổi"), U("toi")};
@@ -496,6 +648,20 @@ int main() {
           hodion::restore_sentence(bare, cfg, toyKnown, model);
       Check(out.size() == bare.size(), "giữ nguyên số phần tử");
       EXPECT_EQ(S(out.at(1)), std::string("tối"));
+
+      // Ba từ, hai chỗ nhập nhằng: đủ để Viterbi phải nhớ trạng thái (âm
+      // tiết trước, âm tiết này) và phải lần ngược đường đi. Mô hình đồ
+      // chơi được đặt sao cho đường đúng CHỈ thắng khi ngữ cảnh xa (buổi)
+      // được mang theo qua vị trí thứ ba — quên nó đi là ra "buổi tôi qua".
+      {
+        const std::vector<std::u32string> three = {U("buoi"), U("toi"),
+                                                   U("qua")};
+        const auto path = hodion::restore_sentence(three, cfg, toyKnown, model);
+        Check(path.size() == 3, "giữ nguyên số phần tử");
+        EXPECT_EQ(S(path.at(0)), std::string("buổi"));
+        EXPECT_EQ(S(path.at(1)), std::string("tối"));
+        EXPECT_EQ(S(path.at(2)), std::string("qua"));
+      }
       // Chuỗi rỗng và chuỗi không đoán được thì trả về y nguyên.
       EXPECT_TRUE(hodion::restore_sentence({}, cfg, toyKnown, model).empty());
       const std::vector<std::u32string> odd = {U("zzz"), U("qqq")};
