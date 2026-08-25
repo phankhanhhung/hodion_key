@@ -139,21 +139,48 @@ std::vector<std::u32string> SplitPayload(const std::string& payload) {
   return out;
 }
 
+// Kiểu đặt dấu là thứ duy nhất của cấu hình ảnh hưởng tới chữ sinh ra.
+// Đọc từ bản chụp không khoá — RefreshTray ghi, luồng phục vụ đọc, sai
+// nhịp một lần thì cùng lắm là một từ ra kiểu dấu cũ.
+hodion::Config HostConfig(const Host& host) {
+  hodion::Config cfg;
+  cfg.tone_style = host.serverVietnameseStyleModern
+                       ? hodion::ToneStyle::Modern
+                       : hodion::ToneStyle::Traditional;
+  return cfg;
+}
+
 // Chạy trên luồng của HostServer.
 std::string HandleRequest(hodionipc::Op op, const std::string& payload) {
   switch (op) {
     case hodionipc::Op::Ping:
       return "HodionKey host 1";
 
+    case hodionipc::Op::Candidates: {
+      Host* host = g_host;
+      if (!host || host->syllables.empty()) return {};
+      const hodion::Config cfg = HostConfig(*host);
+
+      const std::vector<std::u32string> fields = SplitPayload(payload);
+      if (fields.empty() || fields[0].empty()) return {};
+      const std::vector<std::u32string> left(fields.begin() + 1, fields.end());
+
+      std::string out;
+      for (const std::u32string& c :
+           hodion::rank_candidates(left, fields[0], cfg, host->syllables,
+                                   host->model)) {
+        if (!out.empty()) out += '\t';
+        out += hodion::utf::to_utf8(c);
+      }
+      return out;
+    }
+
     case hodionipc::Op::Restore: {
       Host* host = g_host;
       // Bảng nạp xong TRƯỚC khi mở kênh và không đổi nữa, nên luồng phục vụ
       // đọc thoải mái mà không cần khoá.
       if (!host || host->syllables.empty()) return {};
-      hodion::Config cfg;
-      cfg.tone_style = host->serverVietnameseStyleModern
-                           ? hodion::ToneStyle::Modern
-                           : hodion::ToneStyle::Traditional;
+      const hodion::Config cfg = HostConfig(*host);
 
       const std::vector<std::u32string> fields = SplitPayload(payload);
       if (fields.empty() || fields[0].empty()) return {};

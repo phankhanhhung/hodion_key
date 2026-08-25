@@ -21,7 +21,7 @@ IDI_APP     ICON "icons/hodionkey.ico"
 IDI_TRAY_VI ICON "icons/hodionkey-vi.ico"
 IDI_TRAY_EN ICON "icons/hodionkey-en.ico"
 
-IDD_CONFIG DIALOGEX 0, 0, 420, 269
+IDD_CONFIG DIALOGEX 0, 0, 420, 287
 STYLE DS_SETFONT | DS_MODALFRAME | DS_CENTER | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "HodionKey"
 FONT 8, "MS Shell Dlg", 400, 0, 0x1
@@ -70,7 +70,7 @@ BEGIN
                     222, 87, 184, 12
     LTEXT           "", IDC_LBL_PREDICTHINT, 222, 102, 184, 10
 
-    GROUPBOX        "Shortcut keys", IDC_GRP_KEYS, 215, 124, 198, 116
+    GROUPBOX        "Shortcut keys", IDC_GRP_KEYS, 215, 124, 198, 134
     LTEXT           "Vietnamese / English:", IDC_LBL_KEY_TOGGLE,
                     222, 139, 74, 10
     CONTROL         "", IDC_HOTKEY_TOGGLE, "msctls_hotkey32",
@@ -85,9 +85,12 @@ BEGIN
     LTEXT           "Undo for one word:", IDC_LBL_KEY_CANCEL, 222, 193, 74, 10
     CONTROL         "", IDC_HOTKEY_CANCEL, "msctls_hotkey32",
                     WS_TABSTOP, 300, 191, 106, 14
-    LTEXT           "", IDC_LBL_KEYHINT, 222, 210, 184, 26
+    LTEXT           "Next spelling:", IDC_LBL_KEY_CYCLE, 222, 211, 74, 10
+    CONTROL         "", IDC_HOTKEY_CYCLE, "msctls_hotkey32",
+                    WS_TABSTOP, 300, 209, 106, 14
+    LTEXT           "", IDC_LBL_KEYHINT, 222, 228, 184, 26
 
-    PUSHBUTTON      "Defaults", IDC_DEFAULTS, 7, 246, 80, 16, WS_GROUP | WS_TABSTOP
-    DEFPUSHBUTTON   "OK", IDOK, 279, 246, 64, 16, WS_TABSTOP
-    PUSHBUTTON      "Cancel", IDCANCEL, 349, 246, 64, 16, WS_TABSTOP
+    PUSHBUTTON      "Defaults", IDC_DEFAULTS, 7, 264, 80, 16, WS_GROUP | WS_TABSTOP
+    DEFPUSHBUTTON   "OK", IDOK, 279, 264, 64, 16, WS_TABSTOP
+    PUSHBUTTON      "Cancel", IDCANCEL, 349, 264, 64, 16, WS_TABSTOP
 END

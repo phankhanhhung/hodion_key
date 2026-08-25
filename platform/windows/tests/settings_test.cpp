@@ -46,7 +46,7 @@ bool SameSettings(const HodionSettings& a, const HodionSettings& b) {
          a.auto_diacritics == b.auto_diacritics &&
          a.predict_margin == b.predict_margin && a.toggle == b.toggle &&
          a.method_key == b.method_key && a.predict_key == b.predict_key &&
-         a.cancel_key == b.cancel_key;
+         a.cancel_key == b.cancel_key && a.cycle_key == b.cycle_key;
 }
 
 std::wstring Wide(const char32_t* s) {
@@ -96,6 +96,7 @@ int main() {
   s.method_key = ToggleKey{VK_F9, TF_MOD_CONTROL | TF_MOD_SHIFT};
   s.predict_key = ToggleKey{};                       // tắt hẳn
   s.cancel_key = ToggleKey{VK_OEM_5, TF_MOD_ALT};
+  s.cycle_key = ToggleKey{VK_OEM_PERIOD, TF_MOD_CONTROL};
 
   Check(SaveHodionSettings(s), "SaveHodionSettings");
   HodionSettings loaded = LoadHodionSettings();
@@ -109,6 +110,7 @@ int main() {
   Check(loaded.method_key == s.method_key, "vòng đọc/ghi phím Telex/VNI");
   Check(!loaded.predict_key.enabled(), "phím tắt hẳn vẫn tắt sau khi đọc lại");
   Check(loaded.cancel_key == s.cancel_key, "vòng đọc/ghi phím hủy dấu");
+  Check(loaded.cycle_key == s.cycle_key, "vòng đọc/ghi phím xoay vòng");
 
   // Chỉ đổi trạng thái bật/tắt (đường đi khi người dùng bấm phím chuyển).
   Check(SaveHodionVietnameseOn(true), "SaveHodionVietnameseOn");
@@ -158,10 +160,13 @@ int main() {
   }
   Check(def.toggle == HodionDefaultToggleKey(), "phím chuyển mặc định");
   Check(def.cancel_key == HodionDefaultCancelKey(), "phím hủy dấu mặc định");
+  Check(def.cycle_key == HodionDefaultCycleKey(), "phím xoay vòng mặc định");
   Check(def.toggle.valid() && def.cancel_key.valid(),
         "phím mặc định đều có modifier");
   // Hai phím bật sẵn phải khác nhau, nếu không cái sau đăng ký hỏng.
-  Check(def.toggle != def.cancel_key, "phím mặc định không trùng nhau");
+  Check(def.toggle != def.cancel_key && def.toggle != def.cycle_key &&
+            def.cancel_key != def.cycle_key,
+        "phím mặc định không trùng nhau");
   Check(!def.method_key.enabled() && !def.predict_key.enabled(),
         "phím Telex/VNI và tự thêm dấu mặc định tắt");
 

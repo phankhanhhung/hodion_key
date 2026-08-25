@@ -189,14 +189,51 @@ Phần dò ranh giới từ tách ra `WordScan.cpp` để test được mà khô
 ứng dụng TSF thật — nó là chỗ logic thuần và dễ sai nhất; số học trên
 `ITfRange` thì chỉ chạy thật mới kiểm được, nên mới có ba lớp chặn ở trên.
 
+### Phím xoay dấu (`CycleWordDiacritics`)
+
+Reconversion phải được ứng dụng gọi, mà nhiều ứng dụng không có lệnh đó.
+Phím xoay dấu (mặc định `Ctrl + Shift + Space`) làm cùng việc nhưng do bộ
+gõ tự khởi xướng: lấy từ ngay trước con trỏ, đổi sang cách viết có dấu kế
+tiếp, bấm tiếp thì sang cách kế nữa.
+
+Nó **dùng lại đúng bộ máy reconversion** — `FindReconvertRange` để tìm
+range, và cả ba lớp đọc-lại-trước-khi-ghi ở trên. Không có đường ghi văn
+bản nào thứ hai, nên không có lớp an toàn nào phải bảo trì hai lần.
+
+Là preserved key chứ không kiểm trong `ClassifyKey` như phím bỏ dấu, vì nó
+phải chạy **sau** khi từ đã chốt: lúc đang gõ dở thì người ta còn đang gõ,
+chỉ khi chữ đã nằm đó người ta mới thấy nó sai dấu. Trước khi tìm range thì
+`FinalizeComposition` chốt từ đang gõ (nếu có), để "từ trước con trỏ" luôn
+là một chuỗi đã thật sự nằm trong văn bản.
+
+Thứ tự vòng xoay lấy từ host (`Op::Candidates` → `rank_candidates`), có
+ngữ cảnh là những từ vừa chốt. Host tắt hay treo thì rơi về
+`syllable_variants` của engine — vẫn xoay được, chỉ mất phần xếp theo ngữ
+cảnh. Vì thế `recentWords_` được ghi nhớ **kể cả khi tự thêm dấu đang tắt**:
+hai tính năng khác nhau nhưng cùng cần ngữ cảnh trái.
+
+Chuỗi người dùng gõ ban đầu (dạng không dấu) luôn có mặt trong vòng xoay.
+Nếu không, bấm quá tay là kẹt — không có đường nào về lại chữ mình vừa gõ
+ngoài Ctrl+Z, mà Ctrl+Z thì đã đi qua mấy lần xoay rồi.
+
+Vòng xoay cắt còn **8** phương án, ngắn hơn danh sách 24 của reconversion.
+Danh sách reconversion là thứ người ta nhìn rồi chọn thẳng một cái; vòng
+xoay thì phải bấm qua từng cái, nên dài là gánh nặng chứ không phải lựa
+chọn. Tám chỗ đủ chứa hết những chữ **có thật** của một âm tiết bất kỳ —
+phần bị cắt toàn là chữ chỉ đúng cấu trúc. Chuỗi gốc sống sót qua nhát cắt:
+nếu nó rơi ra ngoài thì nó thế chỗ phương án bét bảng, vì bản thân nó cũng
+có thể là một chữ có thật xếp hạng thấp (gõ `toi` thì `toi` vừa là chuỗi
+gốc vừa là một âm tiết).
+
 ### Bật/tắt tiếng Việt và cấu hình
 
-Bốn hành động có phím riêng, đặt tự do trong app cấu hình. Ba cái đầu —
-chuyển Việt/Anh, chuyển Telex/VNI, bật tắt tự thêm dấu — đăng ký bằng
-`ITfKeystrokeMgr::PreserveKey` nên TSF giao thẳng qua `OnPreservedKey`,
-không lẫn vào luồng phím thường, và chạy cả khi không gõ dở.
+Năm hành động có phím riêng, đặt tự do trong app cấu hình. Bốn cái đầu —
+chuyển Việt/Anh, chuyển Telex/VNI, bật tắt tự thêm dấu, xoay dấu cho từ
+vừa gõ — đăng ký bằng `ITfKeystrokeMgr::PreserveKey` nên TSF giao thẳng qua
+`OnPreservedKey`, không lẫn vào luồng phím thường, và chạy cả khi không gõ
+dở.
 
-Cái thứ tư — **bỏ dấu cho một từ** — cố ý KHÔNG đăng ký. Nó chỉ có nghĩa
+Cái cuối — **bỏ dấu cho một từ** — cố ý KHÔNG đăng ký. Nó chỉ có nghĩa
 khi đang gõ dở, nên nó được kiểm trong `ClassifyKey`; đăng ký sẽ chiếm mất
 tổ hợp đó của ứng dụng kể cả lúc không gõ (mặc định là `Ctrl + Backspace`,
 tức "xóa một từ" của mọi ô nhập liệu).
@@ -445,6 +482,12 @@ Ba tầng, dùng đúng thứ rẻ nhất giải được việc:
    *nếu nó hơn phương án nhì đủ xa*.
 3. **Reconversion** — `restore_sentence` chạy Viterbi trên cả đoạn, vì ở đó
    chữ hai bên đã có sẵn.
+4. **Phím xoay dấu** — `rank_candidates` không chọn giùm, nó **xếp** cả danh
+   sách: chữ có thật trong bảng âm tiết trước (xếp trong nhóm theo điểm
+   3-gram với ngữ cảnh trái), rồi tới chữ chỉ đúng cấu trúc, cuối cùng là
+   chuỗi không dấu người dùng đã gõ. Không có ngưỡng tin cậy ở đây — người
+   dùng đang tự chọn, nên mô hình sai chỉ tốn thêm một lần bấm phím chứ
+   không đổi chữ sau lưng ai.
 
 **Chỉ nhìn sang trái khi đang gõ, và đó là quyết định giao diện chứ không
 phải giới hạn kỹ thuật.** Giải mã lại cả câu sau mỗi từ sẽ cho kết quả tốt

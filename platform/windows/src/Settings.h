@@ -45,6 +45,9 @@ struct HodionSettings {
   // hiệu lực khi đang gõ dở, nên nó KHÔNG được đăng ký làm preserved key —
   // đăng ký sẽ chiếm mất tổ hợp đó của ứng dụng kể cả lúc không gõ.
   ToggleKey cancel_key;  // mặc định Ctrl+Backspace
+  // Xoay từ ngay trước con trỏ qua các cách viết có dấu. Là preserved key
+  // vì nó phải chạy SAU khi từ đã chốt — đó mới là lúc người ta thấy sai.
+  ToggleKey cycle_key;   // mặc định Ctrl+Shift+Space
   // Tự tắt tiếng Việt ở ô mà ứng dụng khai là URL/email/mật khẩu/số
   // (hỏi qua ITfInputScope — xem InputScope.cpp).
   bool skip_input_scopes = true;
@@ -61,6 +64,7 @@ struct HodionSettings {
 // Mặc định của từng phím, dùng cho nút "Mặc định" và khi giá trị hỏng.
 ToggleKey HodionDefaultToggleKey();
 ToggleKey HodionDefaultCancelKey();
+ToggleKey HodionDefaultCycleKey();
 
 // Mô tả một phím tắt cho người đọc ("Ctrl + Space"). Trả về "(tắt)" khi
 // phím không được bật.

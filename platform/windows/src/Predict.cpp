@@ -6,6 +6,7 @@
 #include <string>
 
 #include "TextService.h"
+#include "WordScan.h"
 #include "hodion/english_words.h"
 #include "hodion/utf.h"
 
@@ -48,8 +49,10 @@ std::wstring CTextService::MaybeRestoreDiacritics(const std::wstring& text) {
 
   // Chuỗi chốt thường kèm ký tự ngắt từ ở cuối ("nguyet "). Tách ra, xử lý
   // phần chữ, rồi nối lại y nguyên.
+  // Cắt theo ký tự CHỮ chứ không theo ASCII: "cà " mà cắt kiểu ASCII sẽ ra
+  // từ "c" và ngữ cảnh ghi lại thành rác.
   size_t end = text.size();
-  while (end > 0 && !IsAsciiLetter(text[end - 1])) --end;
+  while (end > 0 && !HodionIsWordChar(text[end - 1])) --end;
 
   // Hết câu thì quên ngữ cảnh, dù có bật đoán dấu hay không.
   for (size_t i = end; i < text.size(); ++i) {
@@ -58,7 +61,6 @@ std::wstring CTextService::MaybeRestoreDiacritics(const std::wstring& text) {
       break;
     }
   }
-  if (!autoDiacritics_) return text;
   if (end == 0 || end > kMaxWordChars) {
     // Không phải một âm tiết: nó vẫn cắt mạch ngữ cảnh.
     ResetPredictContext();
@@ -68,13 +70,19 @@ std::wstring CTextService::MaybeRestoreDiacritics(const std::wstring& text) {
   const std::wstring word = text.substr(0, end);
   const std::wstring rest = text.substr(end);
 
-  // Ghi lại từ vừa chốt làm ngữ cảnh cho từ sau, dù có đổi được hay không.
+  // Ghi lại từ vừa chốt làm ngữ cảnh cho từ sau, dù có đổi được hay không —
+  // và kể cả khi tắt tự thêm dấu, vì phím xoay vòng cũng cần ngữ cảnh này.
   const auto remember = [this](const std::wstring& committed) {
     recentWords_.push_back(committed);
     if (recentWords_.size() > kContextWords) {
       recentWords_.erase(recentWords_.begin());
     }
   };
+
+  if (!autoDiacritics_) {
+    remember(word);
+    return text;
+  }
 
   // Chỉ xét chữ toàn ASCII: có dấu rồi thì người dùng đã nói rõ họ muốn gì.
   for (wchar_t c : word) {

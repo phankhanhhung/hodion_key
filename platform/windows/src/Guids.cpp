@@ -25,6 +25,11 @@ const GUID GUID_HodionKeyToggle = {
 const GUID GUID_HodionKeyMethod = {
     0x7a44c1e2, 0x3b58, 0x4d06, {0x9c, 0x71, 0x2e, 0x8f, 0x5b, 0x0a, 0x6d, 0x34}};
 
+// Preserved key: xoay vòng qua các phương án dấu.
+// {2F8B7D51-6C40-49A3-BE12-7D05A4E38C96}
+const GUID GUID_HodionKeyCycle = {
+    0x2f8b7d51, 0x6c40, 0x49a3, {0xbe, 0x12, 0x7d, 0x05, 0xa4, 0xe3, 0x8c, 0x96}};
+
 // Preserved key: bật/tắt tự thêm dấu.
 // {D9026F13-84AC-4E7B-A5D8-13C6F9B2470E}
 const GUID GUID_HodionKeyPredict = {

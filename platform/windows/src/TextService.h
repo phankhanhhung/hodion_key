@@ -125,6 +125,11 @@ class CTextService : public ITfTextInputProcessorEx,
   HRESULT FindReconvertRange(TfEditCookie ec, ITfRange* pRange,
                              ITfRange** ppWord, std::wstring* outText);
   std::vector<std::wstring> ReconvertCandidates(const std::wstring& word) const;
+  // Xoay từ ngay trước con trỏ sang phương án dấu kế tiếp.
+  HRESULT CycleWordDiacritics(ITfContext* pic);
+  // Hỏi tiến trình nền danh sách phương án đã xếp hạng theo ngữ cảnh. Hỏng
+  // thì trả về rỗng — người gọi tự lo bằng danh sách cục bộ.
+  std::vector<std::wstring> HostCandidates(const std::wstring& word);
 
   // --- Đoán dấu qua tiến trình nền (Predict.cpp) ---
   // Trả về chuỗi đã thêm dấu, hoặc chính `text` khi không đổi gì. Không bao
@@ -173,6 +178,7 @@ class CTextService : public ITfTextInputProcessorEx,
   ToggleKey methodKey_{};
   ToggleKey predictKey_{};
   ToggleKey cancelKey_{};
+  ToggleKey cycleKey_{};
   bool keysRegistered_ = false;
   bool vietnamese_ = true;
   bool skipInputScopes_ = true;

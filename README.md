@@ -21,9 +21,13 @@ với **engine gõ tách rời hoàn toàn** để port sang macOS/Linux.
   17.467 từ tiếng Anh trả lại nguyên chữ lúc chốt từ (`meeting`, `server`
   thay vì `mêting`, `sẻver`); và `Ctrl + Backspace` khi đang gõ dở để bỏ
   dấu cho **riêng từ đó**.
-- **Sửa dấu cho chữ đã chốt** (`ITfFnReconversion`): bôi đen một chữ — hoặc
-  đặt con trỏ vào giữa nó — rồi đổi sang phương án khác, không phải gõ lại
-  cả từ (`duong` → dương, đường, duống, đuông…).
+- **Sửa dấu cho chữ đã chốt**: bôi đen một chữ — hoặc đặt con trỏ vào giữa
+  nó — rồi đổi sang phương án khác qua `ITfFnReconversion`, không phải gõ
+  lại cả từ (`duong` → dương, đường, duống, đuông…).
+- **Phím xoay dấu** `Ctrl + Shift + Space`: xoay từ ngay trước con trỏ qua
+  các cách viết có dấu, xếp theo ngữ cảnh trái bằng mô hình 3-gram —
+  `con duong`→đường nhưng `cây duong`→dương. Chạy ở mọi ứng dụng sửa được
+  văn bản, không cần ứng dụng hỗ trợ reconversion.
 - Composition chuẩn TSF: đoạn đang gõ gạch chân, Backspace xóa một ký tự
   (dấu thanh tự lùi đúng chỗ), Esc trả lại chuỗi phím thô, Enter/Tab/chuột
   chốt từ tự nhiên.
@@ -185,7 +189,7 @@ của ứng dụng vẫn nguyên vẹn.
 
 ## Phím tắt
 
-Bốn hành động, **mỗi cái đặt được phím riêng** trong app cấu hình — bấm tổ
+Năm hành động, **mỗi cái đặt được phím riêng** trong app cấu hình — bấm tổ
 hợp vào ô là xong, bấm `Delete` để tắt hẳn phím đó:
 
 | Hành động | Mặc định |
@@ -193,13 +197,14 @@ hợp vào ô là xong, bấm `Delete` để tắt hẳn phím đó:
 | Chuyển Việt / Anh | `Ctrl + Space` |
 | Chuyển Telex / VNI | tắt |
 | Bật/tắt tự thêm dấu | tắt |
+| Xoay dấu cho từ vừa gõ xong | `Ctrl + Shift + Space` |
 | Bỏ dấu cho **một** từ đang gõ | `Ctrl + Backspace` |
 
 Mỗi phím **bắt buộc có** `Ctrl`, `Alt` hoặc `Shift`: phím trần sẽ bị bộ gõ
 nuốt mất và bạn không gõ được ký tự đó nữa. App cấu hình từ chối lưu nếu
 thiếu modifier hoặc nếu hai hành động trùng tổ hợp.
 
-Ba phím đầu đăng ký với Windows nên chạy cả khi không gõ dở. Phím thứ tư thì
+Bốn phím đầu đăng ký với Windows nên chạy cả khi không gõ dở. Phím cuối thì
 không — nó **chỉ có hiệu lực khi đang gõ dở một từ**, nhờ vậy
 `Ctrl + Backspace` (xóa một từ) của ứng dụng vẫn nguyên vẹn lúc bình thường.
 
@@ -210,9 +215,9 @@ cũng khớp.
 ## Sửa dấu cho chữ đã gõ rồi
 
 Bôi đen một chữ, hoặc chỉ đặt con trỏ vào giữa nó, rồi gọi lệnh chuyển đổi
-lại của ứng dụng (Word, WordPad và nhiều ứng dụng Office có; ứng dụng nào
-không hỗ trợ `ITfFnReconversion` thì chưa dùng được — phím tắt riêng nằm
-trong lộ trình).
+lại của ứng dụng (Word, WordPad và nhiều ứng dụng Office có). Ứng dụng nào
+không hỗ trợ `ITfFnReconversion` thì dùng phím xoay dấu ở ngay dưới đây —
+nó không cần ứng dụng hỗ trợ gì cả.
 
 HodionKey trả về mọi âm tiết tiếng Việt có cùng chuỗi chữ cái gốc, xếp chữ
 đang có lên đầu rồi tới những chữ khác nó ít nhất:
@@ -226,6 +231,38 @@ Danh sách chỉ chứa chữ mà **gõ tay cũng ra được** — nó được
 cho chính engine gõ lại chuỗi chữ cái gốc với mọi tổ hợp phím dấu, chứ
 không phải duyệt bảng vần (duyệt bảng sẽ đẻ ra "gía", "quýen", "dưong" —
 những chữ bộ gõ không bao giờ sinh ra).
+
+### Xoay dấu bằng phím tắt
+
+Lệnh chuyển đổi lại của ứng dụng thì nằm sâu trong menu, mà nhiều ứng dụng
+còn không có. `Ctrl + Shift + Space` (đặt lại được) xoay **từ ngay trước
+con trỏ** qua các cách viết có dấu, bấm tiếp là sang cách kế:
+
+```
+gõ  duong          → duong
+Ctrl + Shift + Space → dương
+Ctrl + Shift + Space → đường
+   …
+Ctrl + Shift + Space → duong   (hết vòng, về đúng chữ đã gõ)
+```
+
+Thứ tự không phải thứ tự bảng chữ: chữ **có thật trong tiếng Việt** xếp
+trước chữ chỉ đúng về cấu trúc, và trong nhóm có thật thì mô hình 3-gram
+xếp theo ngữ cảnh bên trái — cùng một `duong` mà ra khác nhau:
+
+```
+con duong  → đường   (rồi mới tới dương, duồng…)
+cây duong  → dương   (rồi mới tới đường)
+buổi toi   → tối
+```
+
+Chuỗi gõ ban đầu **luôn** nằm trong vòng xoay, nên bấm quá tay vẫn quay về
+chỗ cũ được, không phải Ctrl+Z.
+
+Phím này dùng lại đúng bộ máy của reconversion — tìm range quanh con trỏ,
+đọc lại nội dung ngay trước khi ghi đè — nên ứng dụng nào sửa được văn bản
+là chạy. Tiến trình nền tắt hay treo thì vẫn xoay được, chỉ là thứ tự về
+mặc định (chữ giống chữ đang có nhất xếp trước) vì không có mô hình để hỏi.
 
 ## Tiến trình nền và khay hệ thống
 
@@ -379,6 +416,7 @@ hoặc triển khai theo chính sách. Mặc định trùng với mặc định 
 | `MethodKey` / `MethodMods` | `0` / `0` | Chuyển Telex / VNI (0 = tắt) |
 | `PredictKey` / `PredictMods` | `0` / `0` | Bật/tắt tự thêm dấu (0 = tắt) |
 | `CancelKey` / `CancelMods` | `0x08` / `2` | Bỏ dấu cho một từ đang gõ |
+| `CycleKey` / `CycleMods` | `0x20` / `6` | Xoay dấu cho từ vừa gõ xong |
 
 Modifier: 1 = Alt, 2 = Ctrl, 4 = Shift (cộng dồn). Virtual-key `0` nghĩa là
 **tắt hẳn** phím đó. Có virtual-key mà modifier bằng 0 là giá trị hỏng —
@@ -393,7 +431,8 @@ phím trần sẽ nuốt mất phím đó khi gõ — nên nó tự quay về m�
 - [x] Gõ trộn Việt–Anh: từ điển Anh quyết định lúc chốt từ
 - [x] Tiến trình nền làm host cho logic nặng (named pipe, hạn cứng 20 ms)
 - [x] Tự thêm dấu cho chữ không dấu: mô hình 3-gram, 95,6% đúng khi ra tay
-- [ ] Phím xoay vòng đổi dấu tại chỗ + chỉ báo độ tin cậy
+- [x] Phím xoay vòng qua các phương án dấu (xếp theo ngữ cảnh trái)
+- [ ] Chỉ báo độ tin cậy khi bộ gõ tự thêm dấu
 - [x] Reconversion — sửa từ đã chốt không phải gõ lại
 - [ ] Port macOS (IMKit) và Linux (fcitx5) trên cùng engine
 - [ ] Gõ tắt (macro) người dùng định nghĩa, VIQR

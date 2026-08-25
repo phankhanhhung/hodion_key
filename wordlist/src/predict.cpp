@@ -91,6 +91,52 @@ std::u32string restore_in_context(const std::vector<std::u32string>& left,
   return *winner;
 }
 
+std::vector<std::u32string> rank_candidates(
+    const std::vector<std::u32string>& left, const std::u32string& word,
+    const Config& cfg, const SyllableSet& known, const NgramModel& model,
+    size_t max_results) {
+  std::vector<std::u32string> out;
+  if (word.empty() || max_results == 0) return out;
+
+  const std::u32string bare = strip_diacritics(word);
+  const std::vector<std::u32string> all =
+      syllable_variants(bare, cfg, max_results * 2, &known);
+
+  std::vector<std::u32string> real, structural;
+  for (const std::u32string& v : all) {
+    (known.contains(v) ? real : structural).push_back(v);
+  }
+
+  if (!model.empty() && real.size() > 1) {
+    const size_t n = left.size();
+    const int a = n >= 2 ? model.id(left[n - 2]) : model.bos();
+    const int b = n >= 1 ? model.id(left[n - 1]) : model.bos();
+    std::stable_sort(real.begin(), real.end(),
+                     [&](const std::u32string& x, const std::u32string& y) {
+                       return model.score(a, b, model.id(x)) >
+                              model.score(a, b, model.id(y));
+                     });
+  }
+
+  out = std::move(real);
+  out.insert(out.end(), structural.begin(), structural.end());
+
+  if (out.size() > max_results) out.resize(max_results);
+
+  // Chuỗi không dấu ban đầu phải nằm trong vòng, người dùng cần quay về
+  // được đúng thứ mình gõ. Cắt xong mới xét, vì bản thân nó cũng có thể là
+  // một âm tiết thật ("toi") và bị chính giới hạn cắt mất — chỗ này không
+  // phải chỉ thiếu-thì-thêm mà là một bất biến của kết quả.
+  if (std::find(out.begin(), out.end(), bare) == out.end()) {
+    if (out.size() == max_results) {
+      out.back() = bare;  // đổi lấy phương án bét bảng
+    } else {
+      out.push_back(bare);
+    }
+  }
+  return out;
+}
+
 std::vector<std::u32string> restore_sentence(
     const std::vector<std::u32string>& words, const Config& cfg,
     const SyllableSet& known, const NgramModel& model) {

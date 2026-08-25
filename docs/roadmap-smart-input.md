@@ -4,8 +4,9 @@ Tài liệu này chốt lại phần **bàn bạc thiết kế** cho các tính 
 làm: nhận diện tiếng Anh khi gõ văn bản trộn, tự thêm dấu cho chữ Việt
 không dấu, sửa từ đã chốt, và tự sửa lỗi chính tả.
 
-Mục 1–4 (gõ trộn Việt–Anh, reconversion) **đã làm xong** — mục 7 ghi rõ
-mục nào và những gì rút ra khi làm. Mục 5–8 (tự thêm dấu bằng mô hình) thì
+Mục 1–5 và 6a (gõ trộn Việt–Anh, reconversion, mô hình n-gram thêm dấu,
+phím xoay vòng) **đã làm xong** — mục 7 ghi rõ mục nào và những gì rút ra
+khi làm. Phần còn lại (chỉ báo độ tin cậy, bám lại từ, mô hình neural) thì
 chưa có dòng code nào.
 
 Mục đích của tài liệu là để khi bắt tay vào làm thì không phải cãi lại từ
@@ -302,13 +303,17 @@ Nếu vẫn muốn làm, giới hạn cứng:
 | 3 | Từ điển Anh cho quyết định lúc chốt | vừa | thấp | cao | **xong** |
 | 4 | Reconversion (`ITfFnReconversion`) | vừa | vừa | vừa | **xong** |
 | 5 | n-gram + Viterbi thêm dấu, tiến trình riêng | cao | vừa | cao | **xong** |
-| 6 | Phím xoay vòng + display attribute độ tin cậy | vừa | thấp | cao | |
+| 6a | Phím xoay vòng qua các phương án dấu | vừa | thấp | cao | **xong** |
+| 6b | Display attribute cho từ mô hình không chắc | vừa | thấp | vừa | |
 | 7 | Bám lại từ khi con trỏ đứng cuối từ | vừa | cao | vừa | |
 | 8 | Mô hình neural thay n-gram | cao | vừa | thấp | |
 | — | Tự sửa chính tả theo từ điển | vừa | **cao** | **âm** | không làm |
 | — | Picker trong luồng gõ | cao | cao | **âm** | không làm |
 
-Mục 1–5 đã làm xong (chi tiết ở [ARCHITECTURE.md](ARCHITECTURE.md)).
+Mục 1–5 và 6a đã làm xong (chi tiết ở [ARCHITECTURE.md](ARCHITECTURE.md)).
+Mục 6a giữ đúng ba điều đã bàn ở mục 6: áp phương án tốt nhất không hỏi,
+một phím xoay vòng để đổi, và chuỗi không dấu gốc luôn có trong vòng —
+phần còn thiếu chỉ là chỉ báo trực quan cho từ mô hình không chắc (6b).
 
 Về mục 5, đo được sau khi làm xong (40.324 âm tiết ngoài dữ liệu train):
 Viterbi cả câu **94,5%** — đúng khoảng dự đoán 94–96% ở mục 3 bên trên. Còn

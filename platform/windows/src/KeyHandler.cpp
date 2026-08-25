@@ -253,7 +253,7 @@ STDMETHODIMP CTextService::OnKeyUp(ITfContext*, WPARAM, LPARAM,
   return S_OK;
 }
 
-STDMETHODIMP CTextService::OnPreservedKey(ITfContext*, REFGUID rguid,
+STDMETHODIMP CTextService::OnPreservedKey(ITfContext* pic, REFGUID rguid,
                                           BOOL* pfEaten) {
   if (!pfEaten) return E_INVALIDARG;
   *pfEaten = TRUE;
@@ -275,6 +275,10 @@ STDMETHODIMP CTextService::OnPreservedKey(ITfContext*, REFGUID rguid,
     SaveHodionInputMethod(cfg.method);
     watcher_.poll();  // nuốt lượt báo do chính ta vừa ghi
     return S_OK;
+  }
+
+  if (IsEqualGUID(rguid, GUID_HodionKeyCycle)) {
+    return CycleWordDiacritics(pic);
   }
 
   if (IsEqualGUID(rguid, GUID_HodionKeyPredict)) {

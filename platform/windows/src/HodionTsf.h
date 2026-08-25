@@ -14,6 +14,7 @@ extern const GUID GUID_HodionKeyDisplayAttributeInput;
 extern const GUID GUID_HodionKeyToggle;
 extern const GUID GUID_HodionKeyMethod;
 extern const GUID GUID_HodionKeyPredict;
+extern const GUID GUID_HodionKeyCycle;
 
 // vi-VN
 constexpr LANGID kHodionLangId = MAKELANGID(LANG_VIETNAMESE, SUBLANG_DEFAULT);
@@ -22,6 +23,7 @@ constexpr WCHAR kServiceDescription[] = L"HodionKey";
 constexpr WCHAR kToggleKeyDescription[] = L"HodionKey: bat/tat tieng Viet";
 constexpr WCHAR kMethodKeyDescription[] = L"HodionKey: chuyen Telex/VNI";
 constexpr WCHAR kPredictKeyDescription[] = L"HodionKey: bat/tat tu them dau";
+constexpr WCHAR kCycleKeyDescription[] = L"HodionKey: doi dau cua tu truoc";
 constexpr WCHAR kReconversionName[] = L"HodionKey: chon lai dau";
 
 // ---- Trạng thái module ----------------------------------------------------

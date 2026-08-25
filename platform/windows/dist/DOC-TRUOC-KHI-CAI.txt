@@ -33,7 +33,10 @@ CÁCH DÙNG
 - Esc            : trả lại đúng chuỗi phím vừa gõ (huỷ biến đổi)
 - Ctrl+Backspace : đang gõ dở thì bỏ dấu cho RIÊNG từ đó, gõ tiếp bình
                    thường (dành cho từ tiếng Anh lọt giữa câu)
+- Ctrl+Shift+Space: xoay từ ngay trước con trỏ qua các cách viết có dấu
+                   (gõ duong rồi bấm: dương -> đường -> ... -> duong)
 - Cấu hình       : chạy x64\HodionKeyConfig.exe
+                   (đổi được TẤT CẢ các phím trên, trừ Esc)
 
 Thử nhanh: gõ  vieejt nam  →  việt nam
            gõ  dduongwf    →  đường
@@ -57,7 +60,13 @@ Bôi đen một chữ (hoặc đặt con trỏ vào giữa nó) rồi gọi lệ
 lại của ứng dụng — Word, WordPad và nhiều ứng dụng Office có. HodionKey
 đưa ra mọi âm tiết cùng chữ cái gốc, chữ đang có xếp đầu:
   duong  ->  duông, duống, ..., dương, dường, ..., đường
-Ứng dụng nào không hỗ trợ thì chưa dùng được (phím tắt riêng chưa làm).
+Ứng dụng nào không hỗ trợ thì dùng Ctrl+Shift+Space: nó xoay từ ngay
+trước con trỏ qua các cách viết có dấu, không cần ứng dụng hỗ trợ gì.
+Thứ tự xoay theo ngữ cảnh nếu tiến trình nền đang chạy:
+  con duong  ->  đường     (bấm tiếp: dương, duồng, ...)
+  cây duong  ->  dương     (bấm tiếp: đường, ...)
+Chuỗi không dấu bạn gõ ban đầu cũng nằm trong vòng xoay, nên bấm quá tay
+vẫn quay về được.
 
 GIẤY PHÉP TỪ ĐIỂN
 -----------------

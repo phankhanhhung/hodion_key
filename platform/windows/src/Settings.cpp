@@ -51,6 +51,9 @@ bool WriteKey(HKEY key, const WCHAR* vkName, const WCHAR* modsName,
 
 ToggleKey HodionDefaultToggleKey() { return ToggleKey{VK_SPACE, TF_MOD_CONTROL}; }
 ToggleKey HodionDefaultCancelKey() { return ToggleKey{VK_BACK, TF_MOD_CONTROL}; }
+ToggleKey HodionDefaultCycleKey() {
+  return ToggleKey{VK_SPACE, TF_MOD_CONTROL | TF_MOD_SHIFT};
+}
 
 std::wstring HodionDescribeKey(const ToggleKey& key) {
   if (!key.enabled()) return L"(tắt)";
@@ -77,6 +80,7 @@ HodionSettings LoadHodionSettings() {
   HodionSettings s;
   s.toggle = HodionDefaultToggleKey();
   s.cancel_key = HodionDefaultCancelKey();
+  s.cycle_key = HodionDefaultCycleKey();
 
   HKEY key = nullptr;
   if (RegOpenKeyExW(HKEY_CURRENT_USER, kHodionSettingsKey, 0, KEY_QUERY_VALUE,
@@ -108,6 +112,8 @@ HodionSettings LoadHodionSettings() {
   s.predict_key = ReadKey(key, L"PredictKey", L"PredictMods", ToggleKey{});
   s.cancel_key = ReadKey(key, L"CancelKey", L"CancelMods",
                          HodionDefaultCancelKey());
+  s.cycle_key = ReadKey(key, L"CycleKey", L"CycleMods",
+                        HodionDefaultCycleKey());
 
   RegCloseKey(key);
   return s;
@@ -140,6 +146,7 @@ bool SaveHodionSettings(const HodionSettings& s) {
   ok &= WriteKey(key, L"MethodKey", L"MethodMods", s.method_key);
   ok &= WriteKey(key, L"PredictKey", L"PredictMods", s.predict_key);
   ok &= WriteKey(key, L"CancelKey", L"CancelMods", s.cancel_key);
+  ok &= WriteKey(key, L"CycleKey", L"CycleMods", s.cycle_key);
 
   RegCloseKey(key);
   return ok;

@@ -8,6 +8,7 @@
 // Nguyên tắc xuyên suốt file này: **đọc lại trước khi ghi**. Range do ứng
 // dụng cấp, còn ta thì tính toán trên một bản chụp văn bản; nếu văn bản đã
 // đổi kể từ lúc đó thì thà không làm gì còn hơn ghi đè nhầm chỗ.
+#include <algorithm>
 #include <cwchar>
 #include <string>
 #include <vector>
@@ -25,6 +26,14 @@ constexpr size_t kMaxWordChars = 8;
 constexpr LONG kLookAround = 16;
 constexpr ULONG kMaxCandidates = 32;
 
+// Vòng xoay của phím tắt ngắn hơn danh sách của reconversion, và cố ý.
+// Danh sách reconversion là thứ người ta NHÌN rồi chọn một cái; vòng xoay
+// thì phải bấm qua từng cái, nên 24 phương án nghĩa là bấm quá tay một lần
+// là phải bấm hai chục lần nữa mới về được chỗ cũ. Tám là đủ chứa hết
+// những chữ có thật của một âm tiết bất kỳ (phần đuôi bị cắt toàn là chữ
+// chỉ đúng cấu trúc).
+constexpr size_t kCycleRing = 8;
+
 std::u32string ToU32(const std::wstring& s) {
   const std::u16string u16(s.begin(), s.end());
   return hodion::utf::from_utf16(u16);
@@ -33,17 +42,6 @@ std::u32string ToU32(const std::wstring& s) {
 std::wstring FromU32(const std::u32string& s) {
   const std::u16string u16 = hodion::utf::to_utf16(s);
   return std::wstring(u16.begin(), u16.end());
-}
-
-// Ký tự có thuộc về một từ tiếng Việt không? Dùng để dò ranh giới từ khi
-// người dùng chỉ đặt con trỏ mà không bôi đen.
-bool IsWordChar(wchar_t c) {
-  if ((c >= L'a' && c <= L'z') || (c >= L'A' && c <= L'Z')) return true;
-  if (c < 0x80) return false;
-  // Chữ tiếng Việt dựng sẵn: đủ để hỏi engine xem nó có bỏ dấu được không.
-  // Chữ tiếng Việt dựng sẵn thì bỏ dấu ra sẽ khác chính nó — kể cả đ (→ d).
-  const std::u32string one(1, static_cast<char32_t>(c));
-  return hodion::strip_diacritics(one) != one;
 }
 
 HRESULT ReadRange(TfEditCookie ec, ITfRange* range, std::wstring* out) {
@@ -463,4 +461,100 @@ STDMETHODIMP CTextService::Reconvert(ITfRange* pRange) {
     }
   }
   return ApplyReconversion(pic.get(), word.get(), text, items[next]);
+}
+
+// ---- Phím xoay vòng --------------------------------------------------------
+
+std::vector<std::wstring> CTextService::HostCandidates(
+    const std::wstring& word) {
+  std::vector<std::wstring> out;
+
+  // Ngữ cảnh trái. recentWords_ giữ những từ vừa chốt; nếu phần tử cuối
+  // chính là từ đang xoay thì bỏ nó ra — ngữ cảnh là những gì đứng TRƯỚC.
+  std::vector<std::wstring> context = recentWords_;
+  if (!context.empty() && context.back() == word) context.pop_back();
+
+  std::string payload =
+      hodion::utf::to_utf8(std::u32string(word.begin(), word.end()));
+  for (const std::wstring& w : context) {
+    payload += '\t';
+    payload += hodion::utf::to_utf8(std::u32string(w.begin(), w.end()));
+  }
+
+  std::string reply;
+  if (!hostClient_.Request(hodionipc::Op::Candidates, payload, &reply)) {
+    return out;  // không có host — người gọi dùng danh sách cục bộ
+  }
+
+  size_t start = 0;
+  while (start <= reply.size()) {
+    size_t end = reply.find('\t', start);
+    if (end == std::string::npos) end = reply.size();
+    const std::string field = reply.substr(start, end - start);
+    start = end + 1;
+    if (field.empty()) continue;
+    const std::u16string u16 =
+        hodion::utf::to_utf16(hodion::utf::from_utf8(field));
+    out.push_back(std::wstring(u16.begin(), u16.end()));
+  }
+  return out;
+}
+
+HRESULT CTextService::CycleWordDiacritics(ITfContext* pic) {
+  if (!pic) return S_OK;
+
+  // Đang gõ dở thì chốt trước: lúc đó phần đoán dấu mới chạy, và từ mới có
+  // mặt trong tài liệu để mà xoay.
+  FinalizeComposition();
+
+  com_ptr<ITfRange> word;
+  std::wstring text;
+  RequestSyncEdit(pic, TF_ES_SYNC | TF_ES_READ, [&](TfEditCookie ec) {
+    TF_SELECTION sel = {};
+    ULONG fetched = 0;
+    if (FAILED(pic->GetSelection(ec, TF_DEFAULT_SELECTION, 1, &sel,
+                                 &fetched)) ||
+        fetched != 1) {
+      return E_FAIL;
+    }
+    com_ptr<ITfRange> range;
+    range.attach(sel.range);  // GetSelection trả về đã AddRef
+    return FindReconvertRange(ec, range.get(), word.put(), &text);
+  });
+  if (!word || text.empty()) return S_OK;
+
+  // Ưu tiên danh sách của tiến trình nền: nó biết chữ nào CÓ THẬT và xếp
+  // theo ngữ cảnh, nên phương án đầu thường đã đúng. Không có host thì dùng
+  // danh sách cục bộ — chỉ hợp lệ về cấu trúc, nhưng vẫn xoay được.
+  std::vector<std::wstring> items = HostCandidates(text);
+  if (items.empty()) items = ReconvertCandidates(text);
+
+  // Cắt vòng cho ngắn, nhưng chuỗi KHÔNG DẤU gốc phải sống sót: nó là
+  // đường về chỗ cũ, và bản thân nó cũng có thể là một chữ có thật đứng
+  // hạng bét (gõ "toi" thì "toi" vừa là chuỗi gốc vừa là một âm tiết).
+  if (items.size() > kCycleRing) {
+    const std::wstring bare = FromU32(hodion::strip_diacritics(ToU32(text)));
+    items.resize(kCycleRing);
+    if (std::find(items.begin(), items.end(), bare) == items.end()) {
+      items.back() = bare;
+    }
+  }
+  if (items.size() < 2) return S_OK;
+
+  size_t next = 0;
+  for (size_t i = 0; i < items.size(); ++i) {
+    if (items[i] == text) {
+      next = (i + 1) % items.size();
+      break;
+    }
+  }
+  if (items[next] == text) return S_OK;
+
+  const HRESULT hr = ApplyReconversion(pic, word.get(), text, items[next]);
+  // Giữ ngữ cảnh khớp với chữ thật sự đang nằm trên màn hình, để lần bấm
+  // sau vẫn xếp hạng đúng.
+  if (SUCCEEDED(hr) && !recentWords_.empty() && recentWords_.back() == text) {
+    recentWords_.back() = items[next];
+  }
+  return hr;
 }

@@ -42,6 +42,8 @@
 #define IDC_HOTKEY_METHOD     1066
 #define IDC_HOTKEY_PREDICT    1067
 #define IDC_HOTKEY_CANCEL     1068
-#define IDC_LBL_KEYHINT       1069
+#define IDC_LBL_KEY_CYCLE     1069
+#define IDC_HOTKEY_CYCLE      1070
+#define IDC_LBL_KEYHINT       1071
 
 #define IDC_DEFAULTS          1040

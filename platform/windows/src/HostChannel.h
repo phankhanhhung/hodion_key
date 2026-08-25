@@ -23,7 +23,9 @@ constexpr uint16_t kVersion = 1;
 
 enum class Op : uint16_t {
   Ping = 1,     // payload rỗng; trả về chuỗi mô tả phiên bản host
-  Restore = 2,  // payload = từ không dấu; trả về từ có dấu, rỗng = chịu
+  // payload = từ \t ngữ cảnh trái (cũ nhất trước)
+  Restore = 2,    // trả về từ có dấu, rỗng = không đủ bằng chứng
+  Candidates = 3, // trả về MỌI phương án, hay nhất trước, ngăn bằng \t
 };
 
 #pragma pack(push, 1)

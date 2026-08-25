@@ -356,11 +356,12 @@ void CTextService::ApplySettings(const HodionSettings& s) {
 
   cancelKey_ = s.cancel_key;  // không phải preserved key, gán thẳng
   if (s.toggle != toggleKey_ || s.method_key != methodKey_ ||
-      s.predict_key != predictKey_) {
+      s.predict_key != predictKey_ || s.cycle_key != cycleKey_) {
     UnregisterHotKeys();
     toggleKey_ = s.toggle;
     methodKey_ = s.method_key;
     predictKey_ = s.predict_key;
+    cycleKey_ = s.cycle_key;
     if (threadMgr_) RegisterHotKeys();
   }
 }
@@ -439,6 +440,7 @@ void CTextService::RegisterHotKeys() {
   RegisterOneKey(GUID_HodionKeyToggle, toggleKey_, kToggleKeyDescription);
   RegisterOneKey(GUID_HodionKeyMethod, methodKey_, kMethodKeyDescription);
   RegisterOneKey(GUID_HodionKeyPredict, predictKey_, kPredictKeyDescription);
+  RegisterOneKey(GUID_HodionKeyCycle, cycleKey_, kCycleKeyDescription);
   keysRegistered_ = true;
 }
 
@@ -455,7 +457,8 @@ void CTextService::UnregisterHotKeys() {
       const ToggleKey* key;
     } kAll[] = {{&GUID_HodionKeyToggle, &toggleKey_},
                 {&GUID_HodionKeyMethod, &methodKey_},
-                {&GUID_HodionKeyPredict, &predictKey_}};
+                {&GUID_HodionKeyPredict, &predictKey_},
+                {&GUID_HodionKeyCycle, &cycleKey_}};
     for (const auto& entry : kAll) {
       if (!entry.key->valid()) continue;
       TF_PRESERVEDKEY pk;

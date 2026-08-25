@@ -48,6 +48,28 @@ std::u32string restore_in_context(const std::vector<std::u32string>& left,
                                   const NgramModel& model,
                                   float margin = 1.0f);
 
+// Xếp hạng MỌI phương án dấu của `word` theo ngữ cảnh trái, hay nhất trước.
+// Dùng cho phím xoay vòng: bấm một cái là ra phương án khả dĩ nhất, bấm
+// tiếp thì đi dần xuống.
+//
+// Khác restore_in_context ở chỗ nó không im lặng bao giờ — người dùng đã
+// chủ động bấm phím, tức là họ muốn thấy lựa chọn chứ không phải muốn bộ gõ
+// tự quyết. Thứ tự:
+//
+//   1. chữ CÓ THẬT, xếp theo điểm mô hình (không có mô hình thì theo thứ tự
+//      của syllable_variants)
+//   2. chữ chỉ hợp lệ về cấu trúc — từ điển nào cũng thiếu tên riêng
+//
+// Bất biến: chuỗi KHÔNG DẤU của `word` luôn nằm trong kết quả, để người
+// dùng bao giờ cũng xoay về được đúng thứ mình gõ. Nó có thể đã nằm sẵn ở
+// nhóm 1 (chữ không dấu cũng có thể là âm tiết thật, như "toi"); nếu không
+// thì nó được thêm vào cuối, kể cả khi phải hy sinh phương án bét bảng để
+// tôn trọng `max_results`.
+std::vector<std::u32string> rank_candidates(
+    const std::vector<std::u32string>& left, const std::u32string& word,
+    const Config& cfg, const SyllableSet& known, const NgramModel& model,
+    size_t max_results = 24);
+
 // Giải mã CẢ CÂU bằng Viterbi — dùng cho reconversion, khi người dùng bôi
 // đen một đoạn đã gõ xong. Ở đó chữ bên phải đã có sẵn nên tối ưu chung cả
 // chuỗi được, và không có chuyện đổi chữ sau lưng ai.

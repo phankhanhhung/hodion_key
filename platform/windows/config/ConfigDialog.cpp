@@ -51,9 +51,11 @@ const Labels kLabels[] = {
     {IDC_LBL_KEY_METHOD, L"Chuyển Telex / V&NI:"},
     {IDC_LBL_KEY_PREDICT, L"Bật/tắt tự thêm &dấu:"},
     {IDC_LBL_KEY_CANCEL, L"Bỏ dấu cho &1 từ:"},
+    {IDC_LBL_KEY_CYCLE, L"Đổi dấu từ t&rước:"},
     {IDC_LBL_KEYHINT,
      L"Bấm tổ hợp phím vào ô để đặt. Bấm Delete để tắt phím đó.\n"
-     L"Mỗi phím phải có Ctrl, Alt hoặc Shift — phím trần sẽ bị nuốt mất."},
+     L"Mỗi phím phải có Ctrl, Alt hoặc Shift — phím trần sẽ bị nuốt mất.\n"
+     L"\"Đổi dấu từ trước\" bấm nhiều lần để đi hết các cách viết."},
     {IDC_CHK_VIETNAMESE, L"Đang &bật gõ tiếng Việt"},
     {IDC_DEFAULTS, L"Mặc &định"},
     {IDOK, L"OK"},
@@ -114,6 +116,7 @@ const KeyField kKeyFields[] = {
     {IDC_HOTKEY_METHOD, L"Chuyển Telex / VNI", &HodionSettings::method_key},
     {IDC_HOTKEY_PREDICT, L"Bật/tắt tự thêm dấu", &HodionSettings::predict_key},
     {IDC_HOTKEY_CANCEL, L"Bỏ dấu cho 1 từ", &HodionSettings::cancel_key},
+    {IDC_HOTKEY_CYCLE, L"Đổi dấu từ trước", &HodionSettings::cycle_key},
 };
 
 // Phím tắt hỏng thì phải nói ngay lúc bấm OK, không lặng lẽ bỏ qua: người
@@ -255,6 +258,7 @@ INT_PTR CALLBACK DlgProc(HWND dlg, UINT msg, WPARAM wParam, LPARAM) {
           def.vietnamese_on = Checked(dlg, IDC_CHK_VIETNAMESE);
           def.toggle = HodionDefaultToggleKey();
           def.cancel_key = HodionDefaultCancelKey();
+          def.cycle_key = HodionDefaultCycleKey();
           LoadIntoDialog(dlg, def);
           return TRUE;
         }

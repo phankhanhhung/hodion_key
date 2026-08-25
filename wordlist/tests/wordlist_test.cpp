@@ -438,6 +438,57 @@ int main() {
                       .empty());
     }
 
+    // --- Xếp hạng phương án cho phím xoay vòng ---
+    {
+      const std::vector<std::u32string> after_buoi2 = {U("buổi")};
+      const auto ranked = hodion::rank_candidates(after_buoi2, U("toi"), cfg,
+                                                  toyKnown, model);
+      Check(!ranked.empty(), "có phương án để xoay");
+      // Ngữ cảnh "buổi" thì "tối" phải đứng đầu — bấm một cái là xong.
+      EXPECT_EQ(S(ranked.at(0)), std::string("tối"));
+      // Chuỗi không dấu ban đầu LUÔN có mặt: phải quay về được thứ mình gõ.
+      Check(std::find(ranked.begin(), ranked.end(), U("toi")) != ranked.end(),
+            "chuỗi không dấu nằm trong vòng xoay");
+      // Không im lặng như restore_in_context: người dùng đã chủ động bấm.
+      Check(ranked.size() >= 2, "luôn có ít nhất hai thứ để xoay qua lại");
+
+      // Giới hạn và ca biên.
+      Check(hodion::rank_candidates(after_buoi2, U("toi"), cfg, toyKnown,
+                                    model, 2)
+                .size() == 2,
+            "tôn trọng giới hạn số phương án");
+      Check(hodion::rank_candidates(after_buoi2, U("toi"), cfg, toyKnown,
+                                    model, 0)
+                .empty(),
+            "giới hạn 0 thì rỗng");
+      // Giới hạn chật KHÔNG được đẩy chuỗi gốc ra khỏi vòng: cắt danh sách
+      // sau khi thêm nó vào sẽ vứt đi đúng cái vừa thêm.
+      for (size_t limit = 1; limit <= 6; ++limit) {
+        const auto few = hodion::rank_candidates(after_buoi2, U("toi"), cfg,
+                                                 toyKnown, model, limit);
+        Check(few.size() <= limit, "không vượt giới hạn");
+        Check(std::find(few.begin(), few.end(), U("toi")) != few.end(),
+              "chuỗi gốc còn nguyên dù giới hạn chật");
+      }
+      Check(hodion::rank_candidates({}, U(""), cfg, toyKnown, model).empty(),
+            "chuỗi rỗng thì không có phương án");
+
+      // Không có mô hình vẫn xoay được, chỉ là không xếp theo ngữ cảnh.
+      hodion::NgramModel none;
+      const auto plain =
+          hodion::rank_candidates({}, U("toi"), cfg, toyKnown, none);
+      Check(plain.size() >= 2, "không có mô hình vẫn có phương án");
+      Check(std::find(plain.begin(), plain.end(), U("toi")) != plain.end(),
+            "vẫn quay về được chuỗi không dấu");
+
+      // Chữ đã có dấu cũng xoay được — xoay quanh chính họ của nó.
+      const auto from_accented =
+          hodion::rank_candidates({}, U("tối"), cfg, toyKnown, model);
+      Check(std::find(from_accented.begin(), from_accented.end(), U("tôi")) !=
+                from_accented.end(),
+            "xoay từ chữ đã có dấu vẫn thấy các anh em của nó");
+    }
+
     // --- Viterbi cả câu ---
     {
       const std::vector<std::u32string> bare = {U("buổi"), U("toi")};
