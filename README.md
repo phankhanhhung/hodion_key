@@ -289,6 +289,11 @@ Gõ vẫn y như cũ — đó là ràng buộc thiết kế, không phải may m
 - Mở lại tiến trình nền là dùng được ngay, không phải khởi động lại ứng dụng
   đang gõ.
 
+**Thứ tự khởi động không quan trọng.** Bộ gõ nằm trong ứng dụng từ lúc đăng
+nhập, tiến trình nền mở lúc nào cũng được — hai bên không cần biết nhau tồn
+tại. Mỗi lần chốt từ là một lần nối mới, nên host mở sau, tắt đi mở lại, hay
+bị kill rồi chạy lại đều tự nối lại ở lần chốt từ kế tiếp.
+
 Tắt hẳn tính năng thì bỏ dấu tích trong menu khay hoặc app cấu hình; lúc đó
 DLL không hỏi gì nữa.
 

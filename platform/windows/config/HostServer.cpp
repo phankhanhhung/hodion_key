@@ -4,8 +4,10 @@
 
 namespace {
 
-// Đủ cho vài chục ứng dụng đang gõ: mỗi yêu cầu chỉ chiếm luồng vài chục
-// micro giây, và client có timeout cứng nên kẹt cũng không ai chờ.
+// Client mở kết nối rồi đóng ngay sau mỗi yêu cầu (xem HostClient.h), nên
+// số này chỉ cần đủ cho các yêu cầu CHỒNG NHAU chứ không phải cho số ứng
+// dụng đang mở. Người ta chỉ gõ vào một ứng dụng tại một thời điểm, nên
+// thực tế gần như không bao giờ quá một.
 constexpr int kInstances = 4;
 
 }  // namespace
@@ -85,8 +87,8 @@ void HostServer::ServeLoop() {
       }
     }
 
-    // Một kết nối phục vụ nhiều yêu cầu liên tiếp: client giữ pipe mở suốt
-    // phiên gõ nên không phải trả giá nối lại mỗi từ.
+    // Vòng lặp vẫn phục vụ nhiều yêu cầu trên một kết nối nếu client muốn
+    // vậy; client hiện tại đóng sau mỗi yêu cầu nên nó thoát ngay vòng đầu.
     while (connected && WaitForSingleObject(stopEvent_, 0) != WAIT_OBJECT_0) {
       ResetEvent(event);
       DWORD read = 0;

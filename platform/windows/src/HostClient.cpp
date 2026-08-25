@@ -23,11 +23,15 @@ ULONGLONG HostClient::quiet_remaining_ms() const {
   return now >= quietUntil_ ? 0 : quietUntil_ - now;
 }
 
-void HostClient::Close() {
+void HostClient::ClosePipe() {
   if (pipe_ != INVALID_HANDLE_VALUE) {
     CloseHandle(pipe_);
     pipe_ = INVALID_HANDLE_VALUE;
   }
+}
+
+void HostClient::Close() {
+  ClosePipe();
   if (event_) {
     CloseHandle(event_);
     event_ = nullptr;
@@ -79,6 +83,12 @@ bool HostClient::Request(hodionipc::Op op, const std::string& payload,
   reply->clear();
   if (payload.size() > hodionipc::kMaxPayload) return false;
   if (!EnsureConnected()) return false;
+
+  // Kết nối chỉ sống trong đúng lời gọi này — xem chú thích ở HostClient.h.
+  struct Closer {
+    HostClient* self;
+    ~Closer() { self->ClosePipe(); }
+  } closer{this};
 
   hodionipc::Header header;
   header.magic = hodionipc::kMagic;

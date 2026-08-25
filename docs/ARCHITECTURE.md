@@ -304,11 +304,25 @@ Kết quả: host chết, treo, hay chưa bao giờ chạy đều quy về cùng
 — gõ y như khi không có tính năng. Test ở `platform/windows/tests` chạy
 đúng trong tình huống không có host và kiểm cả thời gian trả về.
 
+**Mỗi yêu cầu là một kết nối riêng, mở rồi đóng ngay.** Giữ kết nối cho cả
+phiên thì nhanh hơn, nhưng named pipe có số instance hữu hạn còn DLL này
+thì nằm trong **mọi** ứng dụng đang gõ. Nếu mỗi ứng dụng chiếm một instance
+vĩnh viễn thì ứng dụng thứ N+1 trở đi không bao giờ nối được — im lặng,
+vĩnh viễn, và phụ thuộc vào thứ tự mở ứng dụng. Đổi lại chỉ tốn vài chục
+micro giây mỗi lần mở, mà người ta thì chỉ gõ vào một ứng dụng tại một thời
+điểm nên gần như không bao giờ có hai yêu cầu chồng nhau.
+
 **Phía host (`HostServer`)** giữ 4 instance pipe, mỗi cái một luồng, lặp
-nối → đọc → trả lời → ngắt. Một kết nối phục vụ nhiều yêu cầu liên tiếp
-nên không phải trả giá nối lại mỗi từ. Số luồng cố định: số ứng dụng gõ
-cùng lúc là hữu hạn, yêu cầu thì vài chục micro giây, và client đã có hạn
-cứng nên kẹt cũng không ai phải chờ.
+nối → đọc → trả lời → ngắt rồi mở lại instance mới. Bốn là để dư cho các
+yêu cầu chồng nhau, không phải cho số ứng dụng đang mở.
+
+**Thứ tự khởi động không quan trọng.** DLL được nạp vào ứng dụng từ lúc
+đăng nhập, còn tiến trình nền thì người dùng mở lúc nào tuỳ; hai bên không
+cần biết nhau tồn tại. DLL chỉ hỏi khi chốt từ, và mỗi lần hỏi là một lần
+nối mới — nên host mở sau, tắt đi mở lại, hay bị kill rồi chạy lại đều
+được nối lại ở lần chốt từ kế tiếp, chậm nhất là sau khoảng lùi bước đang
+áp dụng. Không có bước bắt tay nào phải làm lại, và không ứng dụng nào phải
+khởi động lại.
 
 Gói tin sai magic/phiên bản/độ dài là ngắt kết nối, không đoán.
 
