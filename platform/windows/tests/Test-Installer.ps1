@@ -26,6 +26,9 @@ $ErrorActionPreference = 'Stop'
 $Clsid = '{3FBE1B8E-9C52-4B7A-8E1D-5A642F0C917B}'
 $ProfileGuid = '{A1E6F0D3-27C4-45B9-9B02-8F33D16E4A25}'
 $LangId = '0x0000042a'   # LANG_VIETNAMESE
+# GUID_TFCAT_TIP_KEYBOARD — không có category này thì Windows không coi
+# text service là một bàn phím, và nó sẽ không hiện trong danh sách.
+$CatKeyboard = '{34745C63-B2F0-4784-8B67-5E12C8701A31}'
 
 $script:Passed = 0
 $script:Failed = 0
@@ -109,8 +112,21 @@ if (Test-Path -LiteralPath $tipKey) {
     $desc = (Get-ItemProperty -LiteralPath $tipKey -Name 'Description' -ErrorAction SilentlyContinue)
     Check 'profile có mô tả' ($null -ne $desc -and -not [string]::IsNullOrWhiteSpace($desc.Description))
 }
-Check 'đã khai category bàn phím' `
-    (Test-Path -LiteralPath "Registry::HKEY_CLASSES_ROOT\CLSID\$Clsid\Category")
+# Category KHÔNG nằm dưới HKCR\CLSID — ITfCategoryMgr ghi chúng vào cây
+# CTF\TIP. Dò cả cây thay vì đoán đúng tầng, và in ra khi hỏng để lần sau
+# không phải chạy lại CI mới biết nó nằm đâu.
+$catRoot = "HKLM:\SOFTWARE\Microsoft\CTF\TIP\$Clsid\Category"
+$hasKeyboardCat = $false
+if (Test-Path -LiteralPath $catRoot) {
+    $hasKeyboardCat = @(Get-ChildItem -LiteralPath $catRoot -Recurse -ErrorAction SilentlyContinue |
+        Where-Object { $_.Name -like "*$CatKeyboard*" }).Count -gt 0
+}
+Check 'đã khai category bàn phím (GUID_TFCAT_TIP_KEYBOARD)' $hasKeyboardCat $catRoot
+if (-not $hasKeyboardCat) {
+    Write-Host '  --- có gì dưới CTF\TIP\<clsid> ---'
+    Get-ChildItem -LiteralPath "HKLM:\SOFTWARE\Microsoft\CTF\TIP\$Clsid" -Recurse `
+        -ErrorAction SilentlyContinue | ForEach-Object { Write-Host "  $($_.Name)" }
+}
 
 Write-Host ''
 Write-Host '=== 5. Mục gỡ cài đặt trong Settings > Apps ==='
