@@ -1,7 +1,8 @@
 HodionKey — bản thử nghiệm
 ==========================
-Commit: @COMMIT@
-Build:  @BUILD@
+Phiên bản: @VERSION@
+Commit:    @COMMIT@
+Build:     @BUILD@
 
 ⚠ ĐỌC KỸ TRƯỚC KHI CÀI
 ----------------------
@@ -19,13 +20,34 @@ Windows sẽ cảnh báo.
 
 CÁCH CÀI
 --------
-1. Giải nén ra thư mục CỐ ĐỊNH, ví dụ C:\Program Files\HodionKey
-   (đăng ký sẽ ghi nhớ đường dẫn — di chuyển hay xoá thư mục sau khi
-   cài là bộ gõ hỏng).
-2. Chuột phải vào CaiDat.bat → "Run as administrator".
-3. Settings → Time & language → Language & region → thêm "Tiếng Việt"
-   nếu chưa có.
-4. Bấm Win+Space để chuyển sang bàn phím "HodionKey".
+1. Giải nén CẢ gói ra một thư mục bất kỳ (Downloads cũng được — bộ cài
+   sẽ tự chép vào C:\Program Files\HodionKey, nên xoá chỗ giải nén sau
+   khi cài xong cũng không sao).
+2. Bấm đúp CaiDat.bat. KHÔNG cần "Run as administrator" — nó tự xin
+   quyền cho đúng phần cần quyền.
+3. Bấm Win+Space để chuyển sang bàn phím "HodionKey".
+
+Bộ cài làm sẵn hộ bạn: chép file, đăng ký cả bản 64-bit lẫn 32-bit,
+thêm "Tiếng Việt" vào danh sách ngôn ngữ, đặt khởi động cùng Windows,
+bật tiến trình nền, và ghi mục gỡ cài đặt vào Settings > Apps.
+
+Không thích cái nào thì tắt cái đó:
+  CaiDat.bat -NoLanguage     không đụng vào danh sách ngôn ngữ
+  CaiDat.bat -NoAutoStart    không khởi động cùng Windows
+  CaiDat.bat -NoLaunch       không bật tiến trình nền ngay
+  CaiDat.bat -InstallDir D:\HodionKey    cài chỗ khác
+
+VÌ SAO KHÔNG CHẠY BẰNG QUYỀN ADMIN
+----------------------------------
+Bộ cài cố ý tách hai phần. Phần chép file và đăng ký DLL cần quyền quản
+trị, nó tự xin. Phần còn lại — ngôn ngữ, khởi động cùng Windows, bật
+tiến trình nền — chạy dưới quyền NGƯỜI DÙNG, và phải như vậy: tiến trình
+nền mà chạy quyền admin thì nó nằm ở mức toàn vẹn cao hơn các ứng dụng
+thường, các ứng dụng đó sẽ không nối được vào named pipe của nó, và phần
+đoán dấu lặng lẽ biến mất mà không báo gì.
+
+Chạy CaiDat.bat bằng "Run as administrator" vẫn được — script nhận ra và
+vẫn bật tiến trình nền qua explorer.exe để nó rơi về quyền thường.
 
 CÁCH DÙNG
 ---------
@@ -73,9 +95,23 @@ GIẤY PHÉP TỪ ĐIỂN
 Bảng từ tiếng Anh lấy từ SCOWL của Kevin Atkinson; thông báo bản quyền
 bắt buộc nằm ở GIAY-PHEP-TU-DIEN.txt trong gói này.
 
+NÂNG CẤP
+--------
+Chạy CaiDat.bat của bản mới, thế thôi. Nó dừng tiến trình nền, gỡ đăng
+ký bản cũ nếu bản cũ nằm ở thư mục khác, rồi cài đè.
+
+HodionKey.dll nằm trong MỌI ứng dụng đang gõ, nên có thể có file không
+ghi đè được lúc đó. Gặp vậy bộ cài đặt bản mới cạnh bản cũ và nhờ
+Windows tráo lúc khởi động lại — nó sẽ nói rõ, và bản cũ vẫn chạy bình
+thường cho tới lúc đó.
+
 GỠ CÀI
 ------
-Chuột phải GoCaiDat.bat → "Run as administrator".
+Settings > Apps > HodionKey > Uninstall. Hoặc bấm đúp GoCaiDat.bat
+(trong thư mục đã cài, hoặc trong gói tải về).
+
+Cấu hình ở HKCU\Software\HodionKey được GIỮ LẠI, để cài lại là còn
+nguyên. Muốn xoá sạch: GoCaiDat.bat -RemoveSettings
 
 VÌ SAO CÓ CẢ x64 LẪN x86
 ------------------------
@@ -86,9 +122,23 @@ cài đặt làm sẵn cả hai.
 Bản x86 mới chỉ được biên dịch và chạy qua bộ test của engine, chưa từng
 gõ thật ở đâu.
 
+ĐOÁN DẤU CHO CHỮ KHÔNG DẤU
+--------------------------
+Tính năng này cần hai file dữ liệu đặt cạnh HodionKeyConfig.exe:
+  viet-syllables.txt   bảng âm tiết
+  viet-ngram.bin       mô hình 3-gram (~46 MB)
+Chúng KHÔNG nằm trong gói này vì giấy phép của nguồn dữ liệu (từ điển
+âm tiết là GPL-2, kho văn bản là CC BY-SA). Xem tools/build_syllables.py
+và tools/train_ngram.py trong mã nguồn để tự sinh.
+
+Thiếu hai file đó thì mọi thứ khác vẫn chạy y nguyên: chỉ mất phần tự
+thêm dấu, còn phím xoay dấu vẫn xoay được (chỉ là không xếp theo ngữ
+cảnh).
+
 BÁO LỖI
 -------
 Nếu hỏng, cho tôi biết càng cụ thể càng tốt:
 - Bộ gõ có hiện trong danh sách bàn phím không?
 - Ứng dụng nào, gõ chuỗi phím gì, ra kết quả gì, đáng lẽ phải ra gì?
-- regsvr32 có báo lỗi không (chạy lại không kèm /s để thấy thông báo)?
+- Bộ cài có in ra lỗi gì không? Nhật ký nằm ở
+  %TEMP%\HodionKey-CaiDat.log (phần chạy bằng quyền quản trị).

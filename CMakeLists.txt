@@ -1,5 +1,7 @@
 cmake_minimum_required(VERSION 3.16)
-project(hodion_key LANGUAGES CXX)
+# Phiên bản khai ĐÚNG MỘT CHỖ: từ đây nó chảy vào VERSIONINFO của DLL và
+# app cấu hình, rồi bộ cài đọc ngược lại từ chính file exe.
+project(hodion_key VERSION 1.0.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)

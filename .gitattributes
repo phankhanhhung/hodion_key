@@ -1,0 +1,17 @@
+# Mặc định: chuẩn hoá về LF trong repo, để trên đĩa theo hệ điều hành.
+* text=auto
+
+# File Windows đọc bằng chính công cụ của Windows thì phải là CRLF trên
+# đĩa, ở MỌI hệ. cmd.exe đọc .bat kiểu LF là có ngày lỗi khó hiểu, và
+# Notepad đời cũ hiện file LF thành một dòng dài dằng dặc.
+*.bat   text eol=crlf
+*.ps1   text eol=crlf
+*.psd1  text eol=crlf
+*.rc    text eol=crlf
+*.manifest text eol=crlf
+platform/windows/dist/*.txt text eol=crlf
+
+# Nhị phân: đừng đụng vào.
+*.ico   binary
+*.bin   binary
+*.png   binary

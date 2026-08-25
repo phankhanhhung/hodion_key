@@ -94,10 +94,116 @@ jobs:
             build/platform/windows/Release/HodionKey.dll
             build/platform/windows/Release/HodionKeyConfig.exe
 
-  package:
-    # Gộp x64 + x86 + script cài đặt thành MỘT gói tải về là cài được ngay.
-    name: Gói cài đặt
+  installer-lint:
+    # Bộ cài là PowerShell, mà PowerShell thì không có bước biên dịch để
+    # bắt lỗi cú pháp. Phân tích tĩnh là thứ gần nhất với "nó có dịch
+    # được không".
+    name: Bộ cài (cú pháp + PSScriptAnalyzer)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Cài PSScriptAnalyzer
+        shell: pwsh
+        run: |
+          Set-PSRepository -Name PSGallery -InstallationPolicy Trusted -ErrorAction SilentlyContinue
+          Install-Module PSScriptAnalyzer -Scope CurrentUser -Force -AcceptLicense
+      - name: Phân tích cú pháp
+        shell: pwsh
+        run: |
+          $bad = 0
+          $files = Get-ChildItem -Path 'platform/windows' -Recurse -Filter '*.ps1'
+          if ($files.Count -eq 0) { throw 'Không thấy script nào để kiểm.' }
+          foreach ($f in $files) {
+            $errors = $null; $tokens = $null
+            [void][System.Management.Automation.Language.Parser]::ParseFile(
+              $f.FullName, [ref]$tokens, [ref]$errors)
+            if ($errors) {
+              $bad++
+              foreach ($e in $errors) {
+                Write-Host "::error file=$($f.FullName),line=$($e.Extent.StartLineNumber)::$($e.Message)"
+              }
+            } else {
+              Write-Host "cú pháp OK: $($f.FullName)"
+            }
+          }
+          if ($bad -gt 0) { exit 1 }
+      - name: PSScriptAnalyzer
+        shell: pwsh
+        run: |
+          $settings = 'platform/windows/dist/PSScriptAnalyzerSettings.psd1'
+          $found = @(Invoke-ScriptAnalyzer -Path 'platform/windows' -Recurse -Settings $settings)
+          foreach ($r in $found) {
+            Write-Host "::error file=$($r.ScriptPath),line=$($r.Line)::[$($r.RuleName)] $($r.Message)"
+          }
+          Write-Host "$($found.Count) phát hiện"
+          if ($found.Count -gt 0) { exit 1 }
+      - name: Kiểm BOM và xuống dòng
+        shell: bash
+        run: |
+          set -euo pipefail
+          fail=0
+          # Windows PowerShell 5.1 đọc file UTF-8 KHÔNG BOM thành mojibake,
+          # và bộ cài thì đầy tiếng Việt. Thiếu BOM là hỏng thật, không
+          # phải chuyện thẩm mỹ.
+          while IFS= read -r f; do
+            if [ "$(head -c 3 "$f" | od -An -tx1 | tr -d ' \n')" != "efbbbf" ]; then
+              echo "::error file=$f::thiếu BOM UTF-8"
+              fail=1
+            fi
+            if ! head -c 4096 "$f" | grep -q $'\r'; then
+              echo "::error file=$f::phải xuống dòng kiểu CRLF"
+              fail=1
+            fi
+          done < <(find platform/windows -name '*.ps1' -o -name '*.psd1')
+          for f in platform/windows/dist/*.bat; do
+            if ! head -c 4096 "$f" | grep -q $'\r'; then
+              echo "::error file=$f::phải xuống dòng kiểu CRLF"
+              fail=1
+            fi
+          done
+          exit $fail
+
+  installer-smoke:
+    # Chạy THẬT bộ cài trên Windows rồi soi registry. Đây là chỗ duy nhất
+    # kiểm được regsvr32 ghi đúng khoá gì, TSF có nhận text service không,
+    # và gỡ xong có sạch không — đọc script không bao giờ trả lời được.
+    name: Cài thử trên Windows
     needs: tsf-windows
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Tải binary x64
+        uses: actions/download-artifact@v4
+        with:
+          name: HodionKey-x64
+          path: pkg/x64
+      - name: Tải binary x86
+        uses: actions/download-artifact@v4
+        with:
+          name: HodionKey-Win32
+          path: pkg/x86
+      - name: Ghép gói thử
+        shell: pwsh
+        run: |
+          Copy-Item platform/windows/dist/CaiDat.ps1   pkg/
+          Copy-Item platform/windows/dist/CaiDat.bat   pkg/
+          Copy-Item platform/windows/dist/GoCaiDat.ps1 pkg/
+          Copy-Item platform/windows/dist/GoCaiDat.bat pkg/
+          Copy-Item platform/windows/dist/DOC-TRUOC-KHI-CAI.txt pkg/
+          Get-ChildItem pkg -Recurse | Select-Object FullName, Length
+      - name: Cài, soi registry, gỡ
+        shell: pwsh
+        run: |
+          Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass -Force
+          $pkg = Join-Path $PWD 'pkg'
+          $dir = Join-Path $env:RUNNER_TEMP 'HodionKeyTest'
+          & (Join-Path $PWD 'platform/windows/tests/Test-Installer.ps1') -Package $pkg -InstallDir $dir
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+  package:
+    # Gộp x64 + x86 + bộ cài thành MỘT gói tải về là cài được ngay.
+    name: Gói cài đặt
+    needs: [tsf-windows, installer-lint]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -111,28 +217,63 @@ jobs:
         with:
           name: HodionKey-Win32
           path: pkg/x86
-      - name: Ghép script cài đặt và đóng dấu phiên bản
+      - name: Ghép bộ cài và đóng dấu phiên bản
+        id: pack
         run: |
+          set -euo pipefail
+          version=$(sed -n 's/^project(hodion_key VERSION \([0-9][0-9.]*\).*/\1/p' CMakeLists.txt)
+          if [ -z "$version" ]; then echo "Không đọc được phiên bản từ CMakeLists.txt"; exit 1; fi
+          short=$(echo "$GITHUB_SHA" | cut -c1-7)
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "name=HodionKey-$version-$short" >> "$GITHUB_OUTPUT"
+
           cp platform/windows/dist/CaiDat.bat pkg/
+          cp platform/windows/dist/CaiDat.ps1 pkg/
           cp platform/windows/dist/GoCaiDat.bat pkg/
+          cp platform/windows/dist/GoCaiDat.ps1 pkg/
           cp platform/windows/dist/DOC-TRUOC-KHI-CAI.txt pkg/
           # Giấy phép SCOWL yêu cầu thông báo đi kèm mọi bản phát hành.
           cp wordlist/data/SCOWL-COPYRIGHT.txt pkg/GIAY-PHEP-TU-DIEN.txt
-          sed -i "s|@COMMIT@|${GITHUB_SHA} (${GITHUB_REF_NAME})|" \
-            pkg/DOC-TRUOC-KHI-CAI.txt
-          sed -i "s|@BUILD@|MSVC, dung CI ngay $(date -u +%Y-%m-%d)|" \
-            pkg/DOC-TRUOC-KHI-CAI.txt
-          echo "--- noi dung goi ---"
-          find pkg -type f | sort
-          test -f pkg/x64/HodionKey.dll
-          test -f pkg/x86/HodionKey.dll
-          test -f pkg/CaiDat.bat
-          test -f pkg/GIAY-PHEP-TU-DIEN.txt
+
+          sed -i "s|@VERSION@|${version}|" pkg/DOC-TRUOC-KHI-CAI.txt
+          sed -i "s|@COMMIT@|${GITHUB_SHA} (${GITHUB_REF_NAME})|" pkg/DOC-TRUOC-KHI-CAI.txt
+          sed -i "s|@BUILD@|MSVC, dung CI ngay $(date -u +%Y-%m-%d)|" pkg/DOC-TRUOC-KHI-CAI.txt
+      - name: Kiểm gói có đủ thứ không
+        run: |
+          set -euo pipefail
+          missing=0
+          for f in x64/HodionKey.dll x64/HodionKeyConfig.exe \
+                   x86/HodionKey.dll x86/HodionKeyConfig.exe \
+                   CaiDat.bat CaiDat.ps1 GoCaiDat.bat GoCaiDat.ps1 \
+                   DOC-TRUOC-KHI-CAI.txt GIAY-PHEP-TU-DIEN.txt; do
+            if [ ! -s "pkg/$f" ]; then echo "::error::thiếu hoặc rỗng: $f"; missing=1; fi
+          done
+          if grep -q '@VERSION@\|@COMMIT@\|@BUILD@' pkg/DOC-TRUOC-KHI-CAI.txt; then
+            echo "::error::còn chỗ trống chưa thay trong DOC-TRUOC-KHI-CAI.txt"
+            missing=1
+          fi
+          exit $missing
+      - name: Băm và tóm tắt
+        run: |
+          set -euo pipefail
+          cd pkg
+          find . -type f ! -name SHA256SUMS.txt -printf '%P\n' | sort | xargs sha256sum > SHA256SUMS.txt
+          {
+            echo "### Gói cài đặt \`${{ steps.pack.outputs.name }}\`"
+            echo
+            echo '| file | bytes |'
+            echo '|---|---|'
+            find . -type f -printf '%P\t%s\n' | sort | while IFS=$'\t' read -r f n; do
+              echo "| \`$f\` | $n |"
+            done
+          } >> "$GITHUB_STEP_SUMMARY"
+          cat SHA256SUMS.txt
       - name: Tải lên gói cài đặt
         uses: actions/upload-artifact@v4
         with:
-          name: HodionKey-installer
+          name: ${{ steps.pack.outputs.name }}
           path: pkg/
+          if-no-files-found: error
 
   tsf-mingw-cross:
     name: TSF DLL (cross-compile MinGW)

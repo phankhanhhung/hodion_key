@@ -2,6 +2,35 @@
 // SetDlgItemTextW (tránh lệ thuộc code page của rc.exe / windres).
 #include <windows.h>
 #include "resource.h"
+#include "hodion_version.h"
+
+VS_VERSION_INFO VERSIONINFO
+  FILEVERSION    HODION_VERSION_MAJOR, HODION_VERSION_MINOR, HODION_VERSION_PATCH, 0
+  PRODUCTVERSION HODION_VERSION_MAJOR, HODION_VERSION_MINOR, HODION_VERSION_PATCH, 0
+  FILEFLAGSMASK  VS_FFI_FILEFLAGSMASK
+  FILEFLAGS      0
+  FILEOS         VOS_NT_WINDOWS32
+  FILETYPE       VFT_APP
+  FILESUBTYPE    VFT2_UNKNOWN
+BEGIN
+  BLOCK "StringFileInfo"
+  BEGIN
+    BLOCK "000004b0"
+    BEGIN
+      VALUE "CompanyName",      "HodionKey"
+      VALUE "FileDescription",  "HodionKey - tien trinh nen va cau hinh"
+      VALUE "FileVersion",      HODION_VERSION_STR
+      VALUE "InternalName",     "HodionKeyConfig"
+      VALUE "OriginalFilename", "HodionKeyConfig.exe"
+      VALUE "ProductName",      "HodionKey"
+      VALUE "ProductVersion",   HODION_VERSION_STR
+    END
+  END
+  BLOCK "VarFileInfo"
+  BEGIN
+    VALUE "Translation", 0x0000, 1200
+  END
+END
 
 #ifndef RT_MANIFEST
 #define RT_MANIFEST 24

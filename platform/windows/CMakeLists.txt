@@ -1,3 +1,7 @@
+# Số phiên bản đi vào resource của cả hai file nhị phân.
+configure_file(hodion_version.h.in
+               "${CMAKE_CURRENT_BINARY_DIR}/hodion_version.h" @ONLY)
+
 # TSF text service — build bằng MSVC (Visual Studio) hoặc clang-cl trên Windows.
 add_library(hodionkey_tsf SHARED
   src/ClassFactory.cpp
@@ -14,8 +18,12 @@ add_library(hodionkey_tsf SHARED
   src/Settings.cpp
   src/TextService.cpp
   src/WordScan.cpp
+  src/HodionKey.rc
   HodionKey.def
 )
+
+# Cả trình dịch resource lẫn trình dịch C++ đều cần thấy hodion_version.h.
+target_include_directories(hodionkey_tsf PRIVATE "${CMAKE_CURRENT_BINARY_DIR}")
 
 set_target_properties(hodionkey_tsf PROPERTIES
   OUTPUT_NAME "HodionKey"
@@ -64,7 +72,8 @@ set_target_properties(hodionkey_config PROPERTIES
   OUTPUT_NAME "HodionKeyConfig"
 )
 
-target_include_directories(hodionkey_config PRIVATE src config)
+target_include_directories(hodionkey_config PRIVATE
+  src config "${CMAKE_CURRENT_BINARY_DIR}")
 
 target_link_libraries(hodionkey_config PRIVATE
   hodion_engine

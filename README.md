@@ -119,37 +119,47 @@ cmake --build build32 --config Release
 
 ## Cài đặt trên Windows
 
-Cách nhanh nhất: vào tab **Actions** → mở lần chạy CI mới nhất → kéo xuống
-cuối trang **Summary** → tải artifact **`HodionKey-installer`**. Gói này có
-sẵn cả x64 lẫn x86 kèm script; giải nén ra thư mục cố định rồi chuột phải
-`CaiDat.bat` → *Run as administrator*.
+Vào tab **Actions** → mở lần chạy CI mới nhất → kéo xuống cuối trang
+**Summary** → tải artifact **`HodionKey-<phiên bản>-<commit>`**. Giải nén ra
+đâu cũng được rồi **bấm đúp `CaiDat.bat`**.
 
 (Artifacts chỉ hiện ở trang Summary của lần chạy, không hiện trong trang
 chi tiết từng job.)
 
-Hoặc làm tay:
-
-1. Mở Command Prompt **quyền Administrator**.
-2. Đăng ký text service:
-
-   ```bat
-   regsvr32 HodionKey.dll
-   ```
-
-3. Vào **Settings → Time & language → Language & region**, thêm ngôn ngữ
-   **Tiếng Việt** nếu chưa có — bàn phím **HodionKey** xuất hiện trong danh
-   sách bàn phím của tiếng Việt. Chuyển bàn phím bằng `Win + Space`.
-
-Bản 32-bit đăng ký bằng `regsvr32` trong `SysWOW64`:
+Bộ cài làm sẵn: chép vào `C:\Program Files\HodionKey`, đăng ký cả bản
+64-bit lẫn 32-bit, thêm **Tiếng Việt** vào danh sách ngôn ngữ, đặt khởi động
+cùng Windows, bật tiến trình nền, và ghi mục gỡ cài đặt vào **Settings →
+Apps**. Tắt từng thứ nếu không thích:
 
 ```bat
-%SystemRoot%\SysWOW64\regsvr32.exe HodionKey.dll
+CaiDat.bat -NoLanguage -NoAutoStart -NoLaunch
+CaiDat.bat -InstallDir D:\HodionKey
 ```
 
-Lưu ý: `regsvr32` ghi nhớ đường dẫn tới DLL, nên hãy đặt file ở thư mục cố
-định trước khi đăng ký.
+**Đừng chạy nó bằng "Run as administrator"** — không cần, và nó cố ý tách
+làm hai pha. Phần chép file + đăng ký DLL tự xin quyền; phần còn lại chạy
+dưới quyền **người dùng**, vì tiến trình nền mà mang quyền admin thì named
+pipe của nó nằm ở mức toàn vẹn cao hơn ứng dụng thường, các ứng dụng đang gõ
+không nối vào được, và phần đoán dấu lặng lẽ biến mất. (Có lỡ chạy bằng
+quyền admin thì script vẫn nhận ra và bật tiến trình nền qua `explorer.exe`
+để nó rơi về quyền thường.)
 
-Gỡ: `regsvr32 /u HodionKey.dll` (và bản `SysWOW64` tương ứng).
+**Nâng cấp**: chạy `CaiDat.bat` của bản mới, thế thôi. `HodionKey.dll` nằm
+trong mọi ứng dụng đang gõ nên có thể không ghi đè được — gặp vậy bộ cài đặt
+bản mới cạnh bản cũ và nhờ Windows tráo lúc khởi động lại, bản cũ vẫn chạy
+cho tới lúc đó.
+
+**Gỡ**: Settings → Apps → HodionKey → Uninstall, hoặc bấm đúp
+`GoCaiDat.bat`. Cấu hình ở `HKCU\Software\HodionKey` được giữ lại;
+`GoCaiDat.bat -RemoveSettings` mới xoá sạch.
+
+Muốn làm tay thì đăng ký bằng `regsvr32 HodionKey.dll` (bản 32-bit dùng
+`%SystemRoot%\SysWOW64\regsvr32.exe`), gỡ bằng `regsvr32 /u`. Nhớ rằng
+`regsvr32` ghi nhớ đường dẫn, nên phải đặt file ở thư mục cố định trước.
+
+Bộ cài được **chạy thử thật trong CI** trên Windows ở job *Cài thử trên
+Windows*: cài xong soi registry (CLSID, language profile của TSF, mục gỡ cài
+đặt), cài đè lần hai, rồi gỡ và kiểm sạch.
 
 ## Gõ trộn Việt / Anh
 
