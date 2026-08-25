@@ -82,6 +82,11 @@ STDMETHODIMP CTextService::ActivateEx(ITfThreadMgr* ptim, TfClientId tid,
   engine_.set_foreign_words(&hodion::english_words());
 
   ApplySettings(LoadHodionSettings());
+  // Dòng đầu tiên của mỗi tiến trình. Nó trả lời đúng một câu hỏi, mà là
+  // câu phải hỏi trước tất cả: bộ gõ CÓ được nạp vào ứng dụng này không?
+  // Không có dòng này nghĩa là chưa tới lượt bàn phím HodionKey, và mọi
+  // phép thử phím tắt phía sau đều vô nghĩa.
+  HODION_LOG(L"kích hoạt (tiếng Việt %s)", vietnamese_ ? L"BẬT" : L"tắt");
   watcher_.start();
 
   // Theo dõi thay đổi focus để chốt composition dở khi người dùng rời ô nhập.
@@ -423,7 +428,13 @@ void CTextService::SetVietnamese(bool on, bool persist) {
 void CTextService::RegisterOneKey(REFGUID guid, const ToggleKey& key,
                                   const WCHAR* description) {
   // Không bao giờ chiếm một phím trần — nó sẽ biến mất khỏi bàn phím.
-  if (!key.valid()) return;
+  if (!key.valid()) {
+    // Ghi cả phím đang TẮT: người đọc nhật ký cần thấy đủ bức tranh, chứ
+    // "không có dòng nào" thì không phân biệt được tắt với hỏng.
+    HODION_LOG(L"PreserveKey %s: bỏ qua (vk=0x%02X mods=%u)", description,
+               key.vk, key.mods);
+    return;
+  }
 
   com_ptr<ITfKeystrokeMgr> keystrokeMgr;
   if (FAILED(threadMgr_->QueryInterface(IID_ITfKeystrokeMgr,
