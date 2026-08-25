@@ -254,11 +254,11 @@ INT_PTR CALLBACK DlgProc(HWND dlg, UINT msg, WPARAM wParam, LPARAM) {
           return TRUE;
 
         case IDC_DEFAULTS: {
-          HodionSettings def;  // mặc định trùng UniKey
+          // HodionSettings dựng mới CHÍNH LÀ cấu hình mặc định (kể cả các
+          // phím tắt), nên nút này không phải chép lại danh sách mặc định
+          // — chép lại là có ngày quên một phím mới thêm.
+          HodionSettings def;
           def.vietnamese_on = Checked(dlg, IDC_CHK_VIETNAMESE);
-          def.toggle = HodionDefaultToggleKey();
-          def.cancel_key = HodionDefaultCancelKey();
-          def.cycle_key = HodionDefaultCycleKey();
           LoadIntoDialog(dlg, def);
           return TRUE;
         }

@@ -77,10 +77,7 @@ std::wstring HodionDescribeKey(const ToggleKey& key) {
 }
 
 HodionSettings LoadHodionSettings() {
-  HodionSettings s;
-  s.toggle = HodionDefaultToggleKey();
-  s.cancel_key = HodionDefaultCancelKey();
-  s.cycle_key = HodionDefaultCycleKey();
+  HodionSettings s;  // đã mang sẵn mặc định, xem Settings.h
 
   HKEY key = nullptr;
   if (RegOpenKeyExW(HKEY_CURRENT_USER, kHodionSettingsKey, 0, KEY_QUERY_VALUE,

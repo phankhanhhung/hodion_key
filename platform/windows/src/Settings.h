@@ -33,21 +33,28 @@ struct ToggleKey {
   bool operator!=(const ToggleKey& o) const { return !(*this == o); }
 };
 
+// Mặc định của từng phím. Khai TRƯỚC HodionSettings để chính struct đó
+// mang sẵn giá trị mặc định — một HodionSettings mới dựng phải LÀ cấu hình
+// mặc định, chứ không phải một cái vỏ rỗng chờ ai đó nhớ điền vào.
+ToggleKey HodionDefaultToggleKey();
+ToggleKey HodionDefaultCancelKey();
+ToggleKey HodionDefaultCycleKey();
+
 struct HodionSettings {
   hodion::Config engine;
   bool vietnamese_on = true;  // trạng thái gõ tiếng Việt hiện tại
 
   // --- Phím tắt. Cái nào cũng tắt được (vk = 0). ---
-  ToggleKey toggle;      // chuyển Việt / Anh          (mặc định Ctrl+Space)
+  ToggleKey toggle = HodionDefaultToggleKey();  // chuyển Việt / Anh
   ToggleKey method_key;  // chuyển Telex / VNI         (mặc định tắt)
   ToggleKey predict_key; // bật/tắt tự thêm dấu        (mặc định tắt)
   // Hủy biến đổi cho RIÊNG từ đang gõ. Khác ba cái trên ở chỗ nó chỉ có
   // hiệu lực khi đang gõ dở, nên nó KHÔNG được đăng ký làm preserved key —
   // đăng ký sẽ chiếm mất tổ hợp đó của ứng dụng kể cả lúc không gõ.
-  ToggleKey cancel_key;  // mặc định Ctrl+Backspace
+  ToggleKey cancel_key = HodionDefaultCancelKey();  // Ctrl+Backspace
   // Xoay từ ngay trước con trỏ qua các cách viết có dấu. Là preserved key
   // vì nó phải chạy SAU khi từ đã chốt — đó mới là lúc người ta thấy sai.
-  ToggleKey cycle_key;   // mặc định Ctrl+Shift+Space
+  ToggleKey cycle_key = HodionDefaultCycleKey();  // Ctrl+Shift+Space
   // Tự tắt tiếng Việt ở ô mà ứng dụng khai là URL/email/mật khẩu/số
   // (hỏi qua ITfInputScope — xem InputScope.cpp).
   bool skip_input_scopes = true;
@@ -60,11 +67,6 @@ struct HodionSettings {
   // còn không dấu thì nhìn thấy ngay, chữ sai dấu thì trông như đã xong.
   unsigned predict_margin = 20;
 };
-
-// Mặc định của từng phím, dùng cho nút "Mặc định" và khi giá trị hỏng.
-ToggleKey HodionDefaultToggleKey();
-ToggleKey HodionDefaultCancelKey();
-ToggleKey HodionDefaultCycleKey();
 
 // Mô tả một phím tắt cho người đọc ("Ctrl + Space"). Trả về "(tắt)" khi
 // phím không được bật.
