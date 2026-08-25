@@ -406,21 +406,64 @@ trước** chữ chỉ đúng cấu trúc. Mô hình thêm phần đoán theo ng
 
 Mô hình 46 MB không nằm trong repo — không phải vì giấy phép (nó cũng
 CC BY-SA, phát hành lại được) mà vì một khối nhị phân mấy chục MB đổi trọn
-gói mỗi lần train thì không thuộc về git. Tự train:
+gói mỗi lần train thì không thuộc về git.
+
+### Dựng lại dữ liệu
+
+Cả hai file đều sinh lại được từ đầu, và có hai đường.
+
+**Đường 1 — bấm nút, không cần cài gì.** Tab **Actions** → workflow
+**"Dựng dữ liệu ngôn ngữ"** → *Run workflow* → chọn `small` hoặc `full`.
+Nó tải Wikipedia, trích văn bản, dựng bảng, train, rồi **đo lại chất lượng
+trên 5% văn bản không dùng để train** và in con số ra trang Summary. Xong
+thì tải artifact `HodionKey-data-<preset>` về.
+
+**Đường 2 — chạy tay.** Ba bước, dùng lại đúng script mà workflow gọi:
 
 ```sh
-cmake --build build --target hodion_wordscan
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build --target hodion_wordscan hodion_predict_eval -j
 
-python3 tools/train_ngram.py \
-    --corpus vi.txt \
-    --scan   build/engine/hodion_wordscan \
-    --out    viet-ngram.bin
+# 1. Kho văn bản: tải Wikipedia tiếng Việt, trích lấy 500 MB văn bản thuần.
+#    Bộ trích DỪNG khi đủ byte nên curl/bzip2 thoát khác 0 — không phải lỗi.
+curl -sSL https://dumps.wikimedia.org/viwiki/latest/viwiki-latest-pages-articles.xml.bz2 \
+  | bzip2 -dc | python3 tools/extract_wikipedia.py 500000000 > vi.txt
+
+# 2. Bảng âm tiết (~1,5 phút)
+python3 tools/build_syllables.py --corpus vi.txt \
+    --scan build/engine/hodion_wordscan --out viet-syllables.txt
+
+# 3. Mô hình 3-gram (~10 phút; cần thêm chỗ trống cỡ bằng kho văn bản
+#    cho file token tạm, nó tự xoá khi xong)
+python3 tools/train_ngram.py --corpus vi.txt \
+    --scan build/engine/hodion_wordscan --preset small --out viet-ngram.bin
 ```
 
-Rồi đặt nó vào thư mục gốc bản cài (cạnh `x64\` và `x86\`, không phải bên
-trong). Bộ gõ tìm cạnh exe trước rồi mới tới thư mục cha, nên một bản dùng
-chung cho cả hai kiến trúc. Dựng lại bảng âm tiết cũng từ chính kho văn bản
-đó: `python3 tools/build_syllables.py --corpus vi.txt --scan … --out …`
+Muốn tự đo lại thì phải cắt phần để chấm điểm ra **trước** khi train — chấm
+trên chính văn bản đã train là tự lừa mình:
+
+```sh
+total=$(wc -l < vi.txt)
+head -n $(( total - 100000 )) vi.txt > train.txt
+tail -n 100000               vi.txt > heldout.txt
+
+python3 tools/train_ngram.py --corpus train.txt \
+    --scan build/engine/hodion_wordscan --preset small --out viet-ngram.bin
+./build/wordlist/hodion_predict_eval viet-syllables.txt viet-ngram.bin 2.0 \
+    < heldout.txt
+```
+
+Workflow ở đường 1 làm đúng chuyện này hộ bạn (5% cuối), nên nếu chỉ muốn
+xem con số thì bấm nút là xong.
+
+**Đặt file vào đâu.** Thư mục gốc bản cài — `C:\Program Files\HodionKey\`,
+**ngang hàng** với `x64\` và `x86\` chứ không phải bên trong. Bộ gõ tìm
+cạnh exe trước rồi mới tới thư mục cha, nên một bản dùng chung cho cả hai
+kiến trúc. Bảng âm tiết thì bộ cài đặt sẵn rồi, chỉ mô hình là phải tự chép.
+
+**Chép xong phải khởi động lại tiến trình nền** — nó nạp dữ liệu một lần
+lúc mở, trước khi mở kênh cho các ứng dụng. Chuột phải icon khay → Thoát,
+rồi chạy lại `HodionKeyConfig.exe`.
 
 Mô hình dùng cho bản đo ở trên train từ 250 MB Wikipedia tiếng Việt: 7.137
 âm tiết trong từ vựng, 3,39 triệu trigram, nạp mất 119 ms và mỗi lần hỏi tốn

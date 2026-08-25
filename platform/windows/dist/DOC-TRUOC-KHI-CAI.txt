@@ -130,13 +130,24 @@ thư mục cài. Nhờ nó, ngay sau khi cài:
     (gõ nguyet -> nguyệt, thuo -> thuở)
   - phím Ctrl+Shift+Space xếp chữ CÓ THẬT lên trước chữ chỉ đúng cấu trúc
 
-Phần đoán theo NGỮ CẢNH cần thêm mô hình 3-gram (viet-ngram.bin, ~46 MB).
-File này không đi kèm vì nó quá lớn cho một gói cài. Tự train:
+Phần đoán theo NGỮ CẢNH cần thêm mô hình 3-gram (viet-ngram.bin): 13 MB
+bản gọn, hoặc 46 MB bản đầy đủ. File này không đi kèm vì quá lớn cho một
+gói cài. Hai cách lấy:
 
-    python3 tools/train_ngram.py --corpus vi.txt         --scan build/engine/hodion_wordscan --out viet-ngram.bin
+  1. Trong repo trên GitHub: tab Actions > workflow "Dựng dữ liệu ngôn
+     ngữ" > Run workflow > chọn "small". Chạy xong thì tải artifact
+     HodionKey-data-small về, trong đó có sẵn cả mô hình lẫn bảng.
 
-rồi chép vào thư mục cài (C:\Program Files\HodionKey), NGANG HÀNG với
-x64\ và x86\ chứ không phải bên trong. Bật lại tiến trình nền là xong.
+  2. Tự train trên máy mình — xem README, mục "Dựng lại dữ liệu".
+     Tóm tắt: tải Wikipedia bằng tools/extract_wikipedia.py rồi chạy
+     tools/train_ngram.py --preset small. Mất khoảng 10 phút.
+
+Rồi chép viet-ngram.bin vào thư mục cài (C:\Program Files\HodionKey),
+NGANG HÀNG với x64\ và x86\ chứ không phải bên trong.
+
+QUAN TRỌNG: chép xong phải khởi động lại tiến trình nền — nó nạp dữ liệu
+đúng một lần lúc mở. Chuột phải icon khay > Thoát, rồi chạy lại
+HodionKeyConfig.exe.
 
 Thiếu mô hình thì mọi thứ khác vẫn chạy y nguyên.
 
