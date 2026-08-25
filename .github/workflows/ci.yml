@@ -10,7 +10,7 @@ jobs:
     name: Engine tests (Linux)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Configure
         run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
       - name: Build
@@ -27,7 +27,7 @@ jobs:
     name: Sanitizer (ASan + UBSan)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Configure
         run: |
           cmake -S . -B build-asan -DCMAKE_BUILD_TYPE=Debug \
@@ -48,7 +48,7 @@ jobs:
     name: Độ phủ (engine)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Cài gcovr
         run: pipx install gcovr || pip install gcovr
       - name: Build có đo phủ
@@ -79,7 +79,7 @@ jobs:
       matrix:
         arch: [x64, Win32]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Configure
         run: cmake -S . -B build -A ${{ matrix.arch }}
       - name: Build
@@ -87,7 +87,7 @@ jobs:
       - name: Test engine
         run: ctest --test-dir build -C Release --output-on-failure
       - name: Upload binaries
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: HodionKey-${{ matrix.arch }}
           path: |
@@ -101,7 +101,7 @@ jobs:
     name: Bộ cài (cú pháp + PSScriptAnalyzer)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Cài PSScriptAnalyzer
         shell: pwsh
         run: |
@@ -171,14 +171,14 @@ jobs:
     needs: tsf-windows
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Tải binary x64
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: HodionKey-x64
           path: pkg/x64
       - name: Tải binary x86
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: HodionKey-Win32
           path: pkg/x86
@@ -206,14 +206,14 @@ jobs:
     needs: [tsf-windows, installer-lint]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Tải binary x64
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: HodionKey-x64
           path: pkg/x64
       - name: Tải binary x86
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: HodionKey-Win32
           path: pkg/x86
@@ -269,7 +269,7 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
           cat SHA256SUMS.txt
       - name: Tải lên gói cài đặt
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: ${{ steps.pack.outputs.name }}
           path: pkg/
@@ -279,7 +279,7 @@ jobs:
     name: TSF DLL (cross-compile MinGW)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Install MinGW
         run: sudo apt-get update && sudo apt-get install -y g++-mingw-w64-x86-64
       - name: Cài MinGW 32-bit

@@ -315,6 +315,40 @@ Vài chỗ dễ sai đã xử lý:
   hơn ứng dụng thường và named pipe của nó sẽ không nhận được kết nối từ
   chúng. Script cài đặt vì thế không tự chạy nó.
 
+### Bộ cài, và vì sao nó tách hai pha
+
+`platform/windows/dist/CaiDat.ps1` chia việc làm hai pha, và đó là hệ quả
+trực tiếp của mục ngay dưới đây chứ không phải chuyện tiện tay:
+
+| pha | quyền | làm gì |
+|---|---|---|
+| máy | Administrator (tự xin) | chép vào Program Files, `regsvr32` cả hai bit, ghi mục gỡ cài đặt |
+| người dùng | quyền thường | thêm tiếng Việt vào danh sách ngôn ngữ, khởi động cùng Windows, bật tiến trình nền |
+
+Pha hai **không được** chạy bằng quyền quản trị. Tiến trình nền khi đó nằm
+ở integrity level cao hơn ứng dụng thường, named pipe của nó cũng vậy, và
+mọi ứng dụng đang gõ sẽ không nối vào được — phần đoán dấu biến mất, lặng
+lẽ, không báo gì. Đây đúng là kiểu hỏng mà một bộ cài "cho chạy admin hết
+cho chắc" tạo ra. Ai lỡ chạy `CaiDat.bat` bằng *Run as administrator* thì
+script nhận ra và bật tiến trình nền qua `explorer.exe` — explorer chạy
+dưới quyền người dùng nên tiến trình con của nó cũng vậy.
+
+**Nâng cấp.** `HodionKey.dll` nằm trong mọi ứng dụng đang gõ nên rất hay bị
+khoá. Ghi đè không được thì bộ cài đặt bản mới cạnh bản cũ rồi nhờ
+`MoveFileEx(..., MOVEFILE_DELAY_UNTIL_REBOOT)` tráo lúc khởi động lại, và
+trả về mã 3010 đúng quy ước. Bản cũ vẫn chạy tới lúc đó. Bản cũ nằm ở thư
+mục khác thì gỡ đăng ký nó trước, không để lại một text service trỏ vào
+file không còn tồn tại.
+
+**Kiểm bằng cách cài thật.** `platform/windows/tests/Test-Installer.ps1`
+chạy trong CI trên `windows-latest`: cài, rồi soi registry — `InProcServer32`
+của cả hai bit (bản 32-bit phải nằm dưới `WOW6432Node`), language profile
+của TSF, `GUID_TFCAT_TIP_KEYBOARD`, mục gỡ cài đặt và `DisplayVersion` khớp
+VERSIONINFO của exe — rồi cài đè lần hai, gỡ, và kiểm sạch. 30 phép kiểm.
+Đây là chỗ duy nhất trả lời được những câu mà đọc script không bao giờ
+trả lời được, ví dụ category TSF nằm ở cây `CTF\TIP` chứ không phải dưới
+`HKCR\CLSID` — chính phép kiểm này đã bắt tôi sai chỗ đó.
+
 ### Kênh giữa DLL và host
 
 Named pipe, một yêu cầu một trả lời, khuôn gói tin ở `src/HostChannel.h`
