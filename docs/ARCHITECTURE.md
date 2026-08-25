@@ -287,8 +287,22 @@ với tới.
 **Phía DLL (`HostClient`) không bao giờ chờ lâu.** Hạn cứng 20 ms bằng
 overlapped I/O; quá hạn thì `CancelIoEx`, đợi I/O kết thúc thật sự (nếu
 không kernel còn đang ghi vào bộ nhớ đã chết), bỏ kết nối và gõ tiếp như
-không có gì. Kết nối hỏng thì im 3 giây rồi mới thử lại — host chưa chạy
-là chuyện thường, thử lại mỗi lần chốt từ chỉ tổ phí.
+không có gì.
+
+**Hạn cứng thôi thì chưa đủ, và đây là chỗ dễ bỏ sót.** Nếu host TREO mà
+mỗi từ ta lại thử lại rồi chờ hết hạn, thì mỗi lần chốt từ tốn đúng 20 ms —
+bộ gõ ì thấy rõ dù về lý thuyết vẫn "không chờ lâu". Nên hỏng lần nào là im
+một lúc, và im theo hai mức khác nhau:
+
+| Hỏng vì | Im | Vì sao |
+|---|---|---|
+| Không kết nối được (host chưa chạy) | 3 giây | mỗi lần thử chỉ tốn vài µs; im ngắn để mở host lên là dùng được ngay |
+| Quá hạn (host treo) | 30 giây | mỗi lần thử tốn ĐÚNG BẰNG hạn; host treo phải nhanh chóng thành "coi như không có" |
+| Đầu kia nói sai giao thức | 3 giây | |
+
+Kết quả: host chết, treo, hay chưa bao giờ chạy đều quy về cùng một hành vi
+— gõ y như khi không có tính năng. Test ở `platform/windows/tests` chạy
+đúng trong tình huống không có host và kiểm cả thời gian trả về.
 
 **Phía host (`HostServer`)** giữ 4 instance pipe, mỗi cái một luồng, lặp
 nối → đọc → trả lời → ngắt. Một kết nối phục vụ nhiều yêu cầu liên tiếp
@@ -393,38 +407,82 @@ Hai tính chất được test kiểm trực tiếp:
 - **Đúng** — mọi biến thể cùng chuỗi chữ cái gốc với đầu vào, và sinh lại
   từ bất kỳ biến thể nào cũng ra đúng cùng một họ.
 
-### Đoán dấu cho chữ không dấu (`predict.cpp`)
+### Đoán dấu cho chữ không dấu (`predict.cpp`, `ngram.cpp`)
 
-`restore_diacritics` lấy tập biến thể của một chuỗi không dấu, giao với
-bảng âm tiết **có thật**, và chỉ trả lời khi còn **đúng một**. Hai cái trở
-lên là nhập nhằng, và không có ngữ cảnh thì chọn bừa còn tệ hơn để nguyên —
-đoán sai im lặng là kiểu hỏng tệ nhất của một bộ gõ.
+Ba tầng, dùng đúng thứ rẻ nhất giải được việc:
 
-Đo trên từ điển 6.502 âm tiết: **15,6%** chuỗi không dấu có đúng một cách
-viết. Đó là toàn bộ những gì làm được mà không cần mô hình. Phần còn lại
-cần n-gram + Viterbi nhìn cả câu và cần kho văn bản để huấn luyện; chỗ cắm
-đã sẵn — cùng một hàm, cùng một kênh IPC, chỉ đổi cách xếp hạng.
+1. **Không nhập nhằng** — `restore_diacritics` giao tập biến thể với bảng âm
+   tiết có thật; còn đúng một thì trả lời chắc chắn. Chỉ 15,6% chuỗi không
+   dấu rơi vào đây, nhưng khi rơi vào thì không cần mô hình gì.
+2. **Lúc gõ** — `restore_in_context` chấm mọi phương án bằng mô hình 3-gram
+   với ngữ cảnh là hai âm tiết đã chốt ngay trước, rồi lấy phương án đầu
+   *nếu nó hơn phương án nhì đủ xa*.
+3. **Reconversion** — `restore_sentence` chạy Viterbi trên cả đoạn, vì ở đó
+   chữ hai bên đã có sẵn.
 
-Test kiểm hai tính chất trên từng âm tiết: thứ đoán ra phải **có thật**, và
-phải đúng là chữ vừa gõ đã thêm dấu chứ không phải một chữ khác. Vi phạm
-cái thứ hai nghĩa là bộ gõ tự ý thay từ của người dùng.
+**Chỉ nhìn sang trái khi đang gõ, và đó là quyết định giao diện chứ không
+phải giới hạn kỹ thuật.** Giải mã lại cả câu sau mỗi từ sẽ cho kết quả tốt
+hơn nhiều (94,5% so với 52,9%), nhưng nó làm chữ ĐÃ hiện trên màn hình tự
+đổi sau lưng người dùng. Cái đó khó chịu hơn hẳn đoán sai — nên chữ đã chốt
+là chốt, và ta chịu mất phần chính xác đó.
 
-### Bảng âm tiết tiếng Việt: nạp lúc chạy, không nằm trong mã nguồn
+**Ngưỡng tin cậy.** Đo trên 40.324 âm tiết của phần kho văn bản không dùng
+để train:
 
-Khác hẳn bảng tiếng Anh, và vì lý do giấy phép chứ không phải kỹ thuật. Từ
-điển chính tả tiếng Việt sẵn có (gói `hunspell-vi` của LibreOffice) mang
-giấy phép **GPL-2** — mục `dictionaries/vi/*` trong file copyright; dòng
-MPL-2.0 ở đầu file là cho các từ điển khác. Đưa dữ liệu dẫn xuất từ nó vào
-mã nguồn sẽ kéo GPL-2 lên cả dự án, và đó là quyết định của chủ dự án.
+| ngưỡng | có đổi chữ | đúng khi đổi | đúng chung |
+|---|---|---|---|
+| 0 (đoán mọi chỗ) | 89,5% | 85,2% | 85,5% |
+| 1,0 | 60,3% | 90,8% | 65,4% |
+| **2,0 (mặc định)** | 43,3% | **95,6%** | 52,9% |
 
-Nên `SyllableList` nạp một file văn bản UTF-8 đặt cạnh exe
-(`viet-syllables.txt`), sinh bằng `tools/build_syllables.py`. Không có file
-thì mục menu bị làm mờ kèm lý do; mọi thứ khác chạy như thường.
+Mặc định là 2,0 chứ không phải 0, dù 0 cho "đúng chung" cao hơn hẳn. Với
+một bộ gõ, **đổi sai tệ hơn không đổi**: chữ còn không dấu thì người dùng
+nhìn thấy ngay và sửa, chữ sai dấu thì trông như đã xong và lọt qua. Ngưỡng
+0 sai 1 trong 7 lần nó ra tay — đủ để mất niềm tin vào cả tính năng.
+
+### Mô hình 3-gram (`ngram.cpp`)
+
+Từ vựng là âm tiết, nên nó nhỏ bất thường: 7.137 mục. Nhờ vậy id vừa 16
+bit và một trigram chỉ tốn 10 byte thay vì 16. Mô hình dùng để đo ở trên
+train từ 250 MB Wikipedia tiếng Việt: 974 nghìn bigram, 3,39 triệu trigram,
+46 MB, nạp mất 119 ms, mỗi lần hỏi tốn 108 µs — thoải mái trong ngân sách
+20 ms của kênh IPC.
+
+Điểm là logP có điều kiện, lùi bậc kiểu *stupid backoff* (phạt log 0,4 mỗi
+bậc). Không cần xác suất đúng chuẩn vì ta chỉ cần **thứ tự**.
+
+Bộ nạp coi file là **dữ liệu không tin được**: kiểm magic, phiên bản, thứ
+tự sắp xếp, và kiểm tràn TRƯỚC khi cấp phát theo độ dài đọc từ file. Test
+thử nạp file cắt cụt ở mọi độ dài và file có số mục bịa.
+
+Test kiểm hai tính chất của phần đoán trên từng âm tiết: thứ đoán ra phải
+**có thật**, và phải đúng là chữ vừa gõ đã thêm dấu chứ không phải một chữ
+khác. Vi phạm cái thứ hai nghĩa là bộ gõ tự ý thay từ của người dùng.
+
+### Dữ liệu ngôn ngữ: nạp lúc chạy, không nằm trong mã nguồn
+
+Khác hẳn bảng tiếng Anh, và vì lý do **giấy phép** chứ không phải kỹ thuật:
+
+- Từ điển chính tả tiếng Việt (`hunspell-vi` của LibreOffice) là **GPL-2** —
+  mục `dictionaries/vi/*` trong file copyright; dòng MPL-2.0 ở đầu file là
+  cho các từ điển khác.
+- Kho văn bản để train mô hình (Wikipedia tiếng Việt) là **CC BY-SA**.
+
+Đưa dữ liệu dẫn xuất từ hai nguồn đó vào mã nguồn là ràng cả dự án vào giấy
+phép của chúng, và đó là quyết định của chủ dự án chứ không phải của một
+script. Nên cả hai là file rời đặt cạnh exe (`viet-syllables.txt`,
+`viet-ngram.bin`), sinh bằng `tools/build_syllables.py` và
+`tools/train_ngram.py`.
+
+Thiếu bảng âm tiết thì mục menu bị làm mờ kèm lý do; có bảng mà thiếu mô
+hình thì vẫn đoán được những chữ chỉ có một cách viết. Không bao giờ hỏng,
+chỉ là làm được ít hơn.
 
 Cách này còn hợp với hướng đi sau: **đổi mô hình không phải dịch lại gì.**
 
-`SyllableList::load` nhận NỘI DUNG chứ không nhận đường dẫn — đọc file là
-việc của tầng host (đường dẫn Windows cần API riêng), còn tầng này portable.
+`SyllableList::load` và `NgramModel::load` nhận NỘI DUNG chứ không nhận
+đường dẫn — đọc file là việc của tầng host (đường dẫn Windows cần API
+riêng), còn tầng này portable.
 
 ### Cách lưu bảng tiếng Anh
 

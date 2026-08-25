@@ -301,15 +301,21 @@ Nếu vẫn muốn làm, giới hạn cứng:
 | 2 | Phím huỷ biến đổi từ hiện tại | thấp | ~0 | vừa | **xong** |
 | 3 | Từ điển Anh cho quyết định lúc chốt | vừa | thấp | cao | **xong** |
 | 4 | Reconversion (`ITfFnReconversion`) | vừa | vừa | vừa | **xong** |
-| 5 | n-gram + Viterbi thêm dấu, tiến trình riêng | cao | vừa | cao | |
+| 5 | n-gram + Viterbi thêm dấu, tiến trình riêng | cao | vừa | cao | **xong** |
 | 6 | Phím xoay vòng + display attribute độ tin cậy | vừa | thấp | cao | |
 | 7 | Bám lại từ khi con trỏ đứng cuối từ | vừa | cao | vừa | |
 | 8 | Mô hình neural thay n-gram | cao | vừa | thấp | |
 | — | Tự sửa chính tả theo từ điển | vừa | **cao** | **âm** | không làm |
 | — | Picker trong luồng gõ | cao | cao | **âm** | không làm |
 
-Mục 1–4 đã làm xong (chi tiết ở [ARCHITECTURE.md](ARCHITECTURE.md)) và
-không cần mô hình nào.
+Mục 1–5 đã làm xong (chi tiết ở [ARCHITECTURE.md](ARCHITECTURE.md)).
+
+Về mục 5, đo được sau khi làm xong (40.324 âm tiết ngoài dữ liệu train):
+Viterbi cả câu **94,5%** — đúng khoảng dự đoán 94–96% ở mục 3 bên trên. Còn
+lúc đang gõ, vì chỉ nhìn được sang trái, con số là **52,9%** ở ngưỡng mặc
+định, và **95,6%** trong số những lần nó thật sự ra tay. Chênh lệch giữa
+94,5% và 52,9% chính là cái giá của ràng buộc "không đổi chữ sau lưng người
+dùng" đã bàn ở mục 3 — nó có thật và nó lớn.
 
 Ba điều rút ra khi làm, đáng ghi lại vì chúng đổi cách nghĩ về mục 5–6:
 

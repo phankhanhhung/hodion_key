@@ -3,6 +3,12 @@
 // Hợp đồng quan trọng nhất: **không bao giờ chờ lâu**. Host chưa chạy, đã
 // tắt, hay đang treo thì hàm này trả về false gần như tức thì và bộ gõ đi
 // tiếp như không có gì. Không có tính năng còn hơn gõ bị khựng.
+//
+// "Đang treo" là ca đáng lo nhất và nó cần xử lý riêng: hạn cứng thôi thì
+// chưa đủ. Nếu host treo mà mỗi từ ta lại thử lại rồi chờ hết hạn thì mỗi
+// lần chốt từ tốn đúng bằng hạn đó — bộ gõ trở nên ì hẳn dù về lý thuyết
+// vẫn "không chờ lâu". Nên hỏng lần nào là im một lúc, và im lâu hơn khi
+// hỏng vì quá hạn.
 #pragma once
 
 #define WIN32_LEAN_AND_MEAN
@@ -23,8 +29,12 @@ class HostClient {
 
   void Close();
 
+  // Chỉ dùng cho test: còn bao lâu nữa mới thử lại (0 = sẵn sàng).
+  ULONGLONG quiet_remaining_ms() const;
+
  private:
   bool EnsureConnected();
+  void Backoff(ULONGLONG ms);
 
   HANDLE pipe_ = INVALID_HANDLE_VALUE;
   HANDLE event_ = nullptr;

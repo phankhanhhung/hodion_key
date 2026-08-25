@@ -250,36 +250,86 @@ toan    →  toan          (để nguyên: toan/toàn/toán/toản — không c�
 duong   →  duong         (để nguyên: 7 cách viết có thật)
 ```
 
-Đó là **nửa dễ** của bài toán, và nó nhỏ hơn ta tưởng: đo trên từ điển 6.502
-âm tiết thì chỉ **15,6%** chuỗi không dấu có đúng một cách viết. Nửa còn lại
-cần mô hình ngôn ngữ nhìn cả câu (`buoi toi` → *buổi tối* nhưng `toi qua
-duong` → *tôi qua đường*), tức là n-gram + Viterbi trong
-[lộ trình](docs/roadmap-smart-input.md). Không đoán bừa là cố ý: đoán sai
-im lặng là kiểu hỏng tệ nhất của một bộ gõ.
+Đó mới là **nửa dễ** — chỉ 15,6% chuỗi không dấu có đúng một cách viết. Nửa
+còn lại cần ngữ cảnh, và đó là việc của **mô hình 3-gram**: khi có nó,
+`buoi toi` ra *buổi tối* còn `toi qua duong` ra *tôi qua đường*.
 
-Hỏi sang tiến trình nền có **hạn cứng 20 ms** và chỉ xảy ra lúc chốt từ,
-không phải mỗi phím. Tiến trình nền chưa chạy, đã tắt hay đang treo thì gõ
-vẫn y như cũ.
+Đo trên 40.324 âm tiết của phần kho văn bản **không dùng để train** (98,2%
+số chỗ là nhập nhằng):
 
-### Bảng âm tiết không nằm trong repo
+| | có đổi chữ | đúng khi đổi | đúng chung |
+|---|---|---|---|
+| Không mô hình (chỉ chỗ duy nhất) | 1,8% | 100% | 12,5% |
+| Có mô hình, ngưỡng 0 (đoán mọi chỗ) | 89,5% | 85,2% | 85,5% |
+| Có mô hình, **ngưỡng 2,0 (mặc định)** | 43,3% | **95,6%** | 52,9% |
+| Cả câu, Viterbi (cho reconversion) | — | — | **94,5%** |
 
-Tính năng này cần một bảng âm tiết tiếng Việt có thật, và bảng đó **cố ý
-không được commit**: từ điển chính tả sẵn có (gói `hunspell-vi` của
-LibreOffice) mang giấy phép **GPL-2**, đưa dữ liệu dẫn xuất từ nó vào đây sẽ
-kéo GPL-2 lên cả dự án — đó là quyết định của chủ dự án, không phải của một
-script. Tự sinh trên máy mình thì không phát hành lại gì cả nên không sao:
+Mặc định chọn ngưỡng 2,0 chứ không phải 0, dù ngưỡng 0 cho "đúng chung" cao
+hơn nhiều. Lý do: với một bộ gõ, **đổi sai tệ hơn là không đổi**. Chữ còn
+không dấu thì người dùng nhìn thấy ngay và sửa; chữ sai dấu thì trông như đã
+xong và lọt qua. Ngưỡng 0 làm sai 1 trong 7 lần nó ra tay — đủ để mất niềm
+tin vào cả tính năng. Chỉnh bằng `PredictMargin` trong registry nếu muốn
+đánh đổi khác.
+
+Chênh lệch giữa 52,9% (lúc gõ) và 94,5% (cả câu) là cái giá của việc **chỉ
+nhìn sang trái**. Lúc gõ thì chữ bên phải chưa tồn tại, và giải mã lại cả
+câu sau mỗi từ sẽ làm chữ đã hiện trên màn hình tự đổi sau lưng người dùng —
+khó chịu hơn hẳn đoán sai. Chữ đã chốt là chốt.
+
+### Nếu tiến trình nền chết hoặc treo
+
+Gõ vẫn y như cũ — đó là ràng buộc thiết kế, không phải may mắn:
+
+- Mỗi lần hỏi có **hạn cứng 20 ms**, và chỉ hỏi lúc chốt từ chứ không phải
+  mỗi phím.
+- Quá hạn hay mất kết nối thì DLL bỏ qua và chốt từ như bình thường.
+- **Hỏng rồi thì im một lúc**: 3 giây nếu không kết nối được, **30 giây nếu
+  quá hạn**. Không có bước này thì một host đang treo sẽ làm mỗi lần chốt từ
+  tốn đúng 20 ms — bộ gõ ì thấy rõ dù kỹ thuật vẫn "không chờ lâu".
+- Mở lại tiến trình nền là dùng được ngay, không phải khởi động lại ứng dụng
+  đang gõ.
+
+Tắt hẳn tính năng thì bỏ dấu tích trong menu khay hoặc app cấu hình; lúc đó
+DLL không hỏi gì nữa.
+
+### Cấu hình được lưu lại
+
+Mọi tuỳ chọn nằm ở `HKCU\Software\HodionKey` và được ghi ngay khi đổi (bấm
+OK trong hộp thoại, hoặc chọn trong menu khay), nên khởi động lại máy vẫn
+nguyên. Test kiểm **mọi trường** đều sống qua một vòng ghi/đọc, để không ai
+thêm tuỳ chọn mới mà quên lưu.
+
+### Dữ liệu ngôn ngữ không nằm trong repo
+
+Tính năng này cần hai file, và cả hai **cố ý không được commit** — vì giấy
+phép của nguồn dữ liệu, không phải vì kỹ thuật. Từ điển chính tả tiếng Việt
+sẵn có (`hunspell-vi` của LibreOffice) là **GPL-2**; Wikipedia tiếng Việt là
+**CC BY-SA**. Đưa dữ liệu dẫn xuất vào đây là ràng cả dự án vào giấy phép
+đó, và đó là quyết định của chủ dự án chứ không phải của một script. Tự sinh
+trên máy mình rồi dùng thì không phát hành lại gì cả.
 
 ```sh
-sudo apt-get install hunspell-vi
 cmake --build build --target hodion_wordscan
+
+# 1. Bảng âm tiết có thật (~6.500 mục, 100 KB)
+sudo apt-get install hunspell-vi
 python3 tools/build_syllables.py \
     --dic  /usr/share/hunspell/vi_VN.dic \
     --scan build/engine/hodion_wordscan \
     --out  viet-syllables.txt
+
+# 2. Mô hình 3-gram (~46 MB) — cần một kho văn bản tiếng Việt có dấu
+python3 tools/train_ngram.py \
+    --corpus vi.txt \
+    --scan   build/engine/hodion_wordscan \
+    --out    viet-ngram.bin
 ```
 
-Đặt `viet-syllables.txt` cạnh `HodionKeyConfig.exe`. Không có file thì mục
-menu bị làm mờ và ghi rõ đang thiếu gì; mọi thứ khác chạy như thường.
+Đặt cả hai cạnh `HodionKeyConfig.exe`. Thiếu bảng âm tiết thì mục menu bị
+làm mờ kèm lý do; có bảng mà thiếu mô hình thì vẫn đoán được những chữ chỉ
+có một cách viết. Mô hình dùng cho bản đo ở trên train từ 250 MB Wikipedia
+tiếng Việt: 7.137 âm tiết trong từ vựng, 3,39 triệu trigram, nạp mất 119 ms
+và mỗi lần hỏi tốn 108 µs.
 
 ## Cấu hình
 
@@ -303,6 +353,7 @@ hoặc triển khai theo chính sách. Mặc định trùng với mặc định 
 | `VietnameseOn`  | `1`      | Đang bật gõ tiếng Việt (phím chuyển ghi vào đây) |
 | `SkipInputScopes` | `1`    | Tự tắt ở ô URL / email / mật khẩu / ô số        |
 | `AutoDiacritics` | `0`     | Tự thêm dấu cho chữ không dấu (cần tiến trình nền) |
+| `PredictMargin` | `20`     | Ngưỡng tin cậy ×10; cao hơn = ít đổi hơn nhưng đúng hơn |
 | `ToggleKey`     | `0x20`   | Virtual-key của phím chuyển (`0x20` = Space)     |
 | `ToggleMods`    | `2`      | Modifier: 1 = Alt, 2 = Ctrl, 4 = Shift (cộng dồn) |
 
@@ -317,8 +368,8 @@ phím đó khi gõ, nên giá trị hỏng sẽ tự quay về mặc định.
 - [x] Gõ trộn Việt–Anh: tự tắt theo input scope + phím bỏ dấu cho một từ
 - [x] Gõ trộn Việt–Anh: từ điển Anh quyết định lúc chốt từ
 - [x] Tiến trình nền làm host cho logic nặng (named pipe, hạn cứng 20 ms)
-- [x] Tự thêm dấu cho chữ không dấu — phần không nhập nhằng (15,6%)
-- [ ] Tự thêm dấu phần còn lại: n-gram + Viterbi nhìn cả câu (cần kho văn bản)
+- [x] Tự thêm dấu cho chữ không dấu: mô hình 3-gram, 95,6% đúng khi ra tay
+- [ ] Phím xoay vòng đổi dấu tại chỗ + chỉ báo độ tin cậy
 - [x] Reconversion — sửa từ đã chốt không phải gõ lại
 - [ ] Port macOS (IMKit) và Linux (fcitx5) trên cùng engine
 - [ ] Gõ tắt (macro) người dùng định nghĩa, VIQR

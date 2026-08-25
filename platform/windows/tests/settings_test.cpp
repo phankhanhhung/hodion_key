@@ -10,6 +10,7 @@
 #include <cstdio>
 #include <string>
 
+#include "HostClient.h"
 #include "Settings.h"
 #include "WordScan.h"
 #include "hodion/reconvert.h"
@@ -33,6 +34,17 @@ bool SameEngine(const hodion::Config& a, const hodion::Config& b) {
          a.w_shorthand == b.w_shorthand &&
          a.telex_brackets == b.telex_brackets &&
          a.english_detect == b.english_detect;
+}
+
+// So MỌI trường. Có hàm này để khi ai đó thêm một tuỳ chọn mà quên ghi vào
+// registry thì test đỏ ngay, chứ không phải đợi người dùng phát hiện cấu
+// hình của mình biến mất sau khi khởi động lại máy.
+bool SameSettings(const HodionSettings& a, const HodionSettings& b) {
+  return SameEngine(a.engine, b.engine) &&
+         a.vietnamese_on == b.vietnamese_on &&
+         a.skip_input_scopes == b.skip_input_scopes &&
+         a.auto_diacritics == b.auto_diacritics &&
+         a.predict_margin == b.predict_margin && a.toggle == b.toggle;
 }
 
 std::wstring Wide(const char32_t* s) {
@@ -77,14 +89,17 @@ int main() {
   s.vietnamese_on = false;
   s.skip_input_scopes = false;
   s.auto_diacritics = true;
+  s.predict_margin = 35;
   s.toggle = ToggleKey{'Z', TF_MOD_ALT};
 
   Check(SaveHodionSettings(s), "SaveHodionSettings");
   HodionSettings loaded = LoadHodionSettings();
   Check(SameEngine(loaded.engine, s.engine), "vòng đọc/ghi cấu hình engine");
+  Check(SameSettings(loaded, s), "MỌI tuỳ chọn đều sống qua một vòng ghi/đọc");
   Check(!loaded.vietnamese_on, "vòng đọc/ghi trạng thái bật/tắt");
   Check(!loaded.skip_input_scopes, "vòng đọc/ghi bỏ qua ô URL/mật khẩu");
   Check(loaded.auto_diacritics, "vòng đọc/ghi tự thêm dấu");
+  Check(loaded.predict_margin == 35, "vòng đọc/ghi ngưỡng tin cậy");
   Check(loaded.toggle == s.toggle, "vòng đọc/ghi phím chuyển");
 
   // Chỉ đổi trạng thái bật/tắt (đường đi khi người dùng bấm phím chuyển).
@@ -118,6 +133,21 @@ int main() {
   Check(def.engine.english_detect, "mặc định có nhận diện từ tiếng Anh");
   // Tự thêm dấu ĐỔI thứ người dùng vừa gõ, nên phải là lựa chọn tường minh.
   Check(!def.auto_diacritics, "mặc định TẮT tự thêm dấu");
+  Check(def.predict_margin == 20, "ngưỡng tin cậy mặc định 2,0");
+
+  // Ngưỡng hỏng trong registry không được làm mô hình đoán bừa.
+  {
+    HKEY key = nullptr;
+    RegCreateKeyExW(HKEY_CURRENT_USER, kHodionSettingsKey, 0, nullptr,
+                    REG_OPTION_NON_VOLATILE, KEY_SET_VALUE, nullptr, &key,
+                    nullptr);
+    const DWORD huge = 999999;
+    RegSetValueExW(key, L"PredictMargin", 0, REG_DWORD,
+                   reinterpret_cast<const BYTE*>(&huge), sizeof(huge));
+    RegCloseKey(key);
+    Check(LoadHodionSettings().predict_margin == 20,
+          "ngưỡng hỏng quay về mặc định");
+  }
   int preset_count = 0;
   const TogglePreset* presets = HodionTogglePresets(&preset_count);
   Check(preset_count > 0 && presets[0].key == def.toggle,
@@ -191,6 +221,35 @@ int main() {
     Check(v.size() > 10, "duong có nhiều phương án");
     Check(std::find(v.begin(), v.end(), std::u32string(U"đường")) != v.end(),
           "đường nằm trong phương án của duong");
+  }
+
+  // --- Kênh tới tiến trình nền: hỏng thì phải hỏng NHANH ---
+  //
+  // Test này chạy khi không có host nào, tức là đúng ca thường gặp nhất:
+  // người dùng chưa mở tiến trình nền. Gõ không được phép chậm đi vì thế.
+  {
+    HostClient client;
+    std::string reply;
+
+    const ULONGLONG t0 = GetTickCount64();
+    const bool ok = client.Request(hodionipc::Op::Ping, "", &reply, 20);
+    const ULONGLONG elapsed = GetTickCount64() - t0;
+    Check(!ok, "không có host thì Request trả false");
+    Check(elapsed < 200, "không có host thì trả về ngay, không chờ");
+    Check(client.quiet_remaining_ms() > 0, "hỏng rồi thì im một lúc");
+
+    // Lần sau phải trả về tức thì mà không thử kết nối lại.
+    const ULONGLONG t1 = GetTickCount64();
+    Check(!client.Request(hodionipc::Op::Ping, "", &reply, 20),
+          "vẫn trả false trong lúc đang im");
+    Check(GetTickCount64() - t1 < 50, "trong lúc im thì không thử lại");
+
+    // Gói tin quá khổ bị chặn ngay, không gửi đi đâu cả.
+    const std::string huge(hodionipc::kMaxPayload + 1, 'a');
+    Check(!client.Request(hodionipc::Op::Restore, huge, &reply, 20),
+          "payload quá khổ bị từ chối");
+    Check(!client.Request(hodionipc::Op::Ping, "", nullptr, 20),
+          "reply null bị từ chối");
   }
 
   // --- Khởi động cùng Windows ---

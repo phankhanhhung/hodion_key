@@ -130,6 +130,9 @@ class CTextService : public ITfTextInputProcessorEx,
   // Trả về chuỗi đã thêm dấu, hoặc chính `text` khi không đổi gì. Không bao
   // giờ chờ lâu: host chưa chạy thì trả lại nguyên văn ngay.
   std::wstring MaybeRestoreDiacritics(const std::wstring& text);
+  // Quên ngữ cảnh câu (đổi ô nhập, hết câu, tắt tiếng Việt). Ghép nhầm ngữ
+  // cảnh của câu trước vào câu sau thì mô hình đoán còn tệ hơn không có.
+  void ResetPredictContext() { recentWords_.clear(); }
 
   // --- Ngữ cảnh nhập liệu (InputScope.cpp) ---
   // Ô đang gõ có tự khai là URL / email / mật khẩu / số không? Hỏi lại một
@@ -167,6 +170,9 @@ class CTextService : public ITfTextInputProcessorEx,
   bool skipInputScopes_ = true;
   bool autoDiacritics_ = false;
   HostClient hostClient_;
+  // Vài âm tiết đã chốt ngay trước, làm ngữ cảnh cho mô hình (cũ nhất
+  // trước). Chỉ nhìn sang trái: chữ đã chốt là chốt, không sửa ngược.
+  std::vector<std::wstring> recentWords_;
   bool scopeRaw_ = false;    // ô hiện tại không nên gõ tiếng Việt
   bool scopeKnown_ = false;  // đã hỏi ITfInputScope cho ô hiện tại chưa
   // Chặn vòng lặp khi chính ta ghi vào compartment OPENCLOSE.

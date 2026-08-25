@@ -92,11 +92,14 @@ endif()
 # Kiểm thử tầng Windows: vòng đọc/ghi registry + theo dõi thay đổi cấu hình.
 add_executable(hodionkey_settings_test
   tests/settings_test.cpp
+  src/HostChannel.cpp
+  src/HostClient.cpp
   src/Settings.cpp
   src/WordScan.cpp
 )
 target_include_directories(hodionkey_settings_test PRIVATE src)
-target_link_libraries(hodionkey_settings_test PRIVATE hodion_engine advapi32)
+target_link_libraries(hodionkey_settings_test PRIVATE
+  hodion_engine advapi32 ole32)
 target_include_directories(hodionkey_settings_test PRIVATE src)
 target_compile_definitions(hodionkey_settings_test PRIVATE UNICODE _UNICODE)
 if(MSVC)

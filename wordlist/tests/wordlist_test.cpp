@@ -6,13 +6,17 @@
 // im lặng ghi đè lên chữ tiếng Việt đúng của người dùng — hỏng tệ nhất
 // trong các kiểu hỏng. Bảng do script sinh ra, nên phải kiểm lại ở đây
 // trên TỪNG từ chứ không tin script.
+#include <algorithm>
 #include <cstddef>
 #include <cstdio>
+#include <cstring>
+#include <utility>
 #include <string>
 #include <vector>
 
 #include "hodion/engine.h"
 #include "hodion/english_words.h"
+#include "hodion/ngram.h"
 #include "hodion/predict.h"
 #include "hodion/reconvert.h"
 #include "hodion/utf.h"
@@ -71,6 +75,68 @@ std::u32string Wide(const std::string& s) {
 }
 
 std::u32string U(const char* utf8) { return hodion::utf::from_utf8(utf8); }
+
+// --- Dựng một file mô hình nhỏ ngay trong test ---------------------------
+//
+// Tự dựng chứ không đọc file có sẵn: bộ nạp phân tích dữ liệu từ đĩa, tức
+// là nó phải chịu được cả file hỏng lẫn file bị sửa. Muốn kiểm chuyện đó
+// thì phải dựng được đủ mọi kiểu dữ liệu vào.
+void PutU32(std::string* out, uint32_t v) {
+  for (int i = 0; i < 4; ++i) out->push_back(static_cast<char>(v >> (8 * i)));
+}
+void PutU64(std::string* out, uint64_t v) {
+  for (int i = 0; i < 8; ++i) out->push_back(static_cast<char>(v >> (8 * i)));
+}
+void PutF32(std::string* out, float v) {
+  uint32_t bits;
+  std::memcpy(&bits, &v, 4);
+  PutU32(out, bits);
+}
+
+struct MiniModel {
+  std::vector<std::string> vocab;              // phải xếp tăng dần
+  std::vector<float> unigram;
+  std::vector<std::pair<uint32_t, float>> bigram;
+  std::vector<std::pair<uint64_t, float>> trigram;
+
+  std::string Serialize(const char* magic = "HKNG", uint32_t version = 1) const {
+    std::string out(magic, 4);
+    PutU32(&out, version);
+    PutU32(&out, static_cast<uint32_t>(vocab.size()));
+    for (const std::string& w : vocab) {
+      out.push_back(static_cast<char>(w.size()));
+      out += w;
+    }
+    for (float f : unigram) PutF32(&out, f);
+    PutU32(&out, static_cast<uint32_t>(bigram.size()));
+    for (const auto& e : bigram) PutU32(&out, e.first);
+    for (const auto& e : bigram) PutF32(&out, e.second);
+    PutU32(&out, static_cast<uint32_t>(trigram.size()));
+    for (const auto& e : trigram) PutU64(&out, e.first);
+    for (const auto& e : trigram) PutF32(&out, e.second);
+    return out;
+  }
+};
+
+// Mô hình đồ chơi: "buổi tối" và "tôi qua" đều gặp, "buổi tôi" thì không.
+MiniModel ToyModel() {
+  MiniModel m;
+  // Xếp theo thứ tự u32string (điểm mã), giống bộ nạp mong đợi.
+  m.vocab = {"<s>", "buổi", "qua", "tôi", "tối"};
+  std::sort(m.vocab.begin(), m.vocab.end(),
+            [](const std::string& a, const std::string& b) {
+              return hodion::utf::from_utf8(a) < hodion::utf::from_utf8(b);
+            });
+  m.unigram.assign(m.vocab.size(), -6.0f);
+  return m;
+}
+
+int ToyId(const MiniModel& m, const char* word) {
+  for (size_t i = 0; i < m.vocab.size(); ++i) {
+    if (m.vocab[i] == word) return static_cast<int>(i);
+  }
+  return -1;
+}
 std::string S(const std::u32string& s) { return hodion::utf::to_utf8(s); }
 
 // Bảng âm tiết thật KHÔNG nằm trong repo (từ điển nguồn là GPL-2), nên test
@@ -278,6 +344,112 @@ int main() {
       for (size_t i = first_unknown; i < v.size(); ++i) {
         EXPECT_TRUE(!viet.contains(v[i]));
       }
+    }
+  }
+
+  // ======================================================================
+  // Mô hình n-gram: bộ nạp và bộ giải mã
+  // ======================================================================
+  {
+    hodion::NgramModel model;
+    Check(model.empty(), "chưa nạp thì mô hình rỗng");
+    Check(model.score(0, 0, 0) < -10.0f, "mô hình rỗng cho điểm rất thấp");
+
+    // --- File hỏng: phải từ chối, không được đọc lố ---
+    MiniModel toy = ToyModel();
+    Check(!model.load(""), "file rỗng");
+    Check(!model.load("HK"), "file cụt");
+    Check(!model.load(toy.Serialize("XXXX")), "sai magic");
+    Check(!model.load(toy.Serialize("HKNG", 99)), "sai phiên bản");
+    {
+      const std::string full = toy.Serialize();
+      for (size_t cut = 1; cut < full.size(); cut += 7) {
+        if (model.load(full.substr(0, cut))) {
+          Check(false, "nhận một file bị cắt cụt");
+          break;
+        }
+      }
+      Check(true, "mọi độ dài cắt cụt đều bị từ chối");
+    }
+    {
+      // Số lượng bịa quá lớn: phải phát hiện trước khi cấp phát.
+      std::string bad(4, '\0');
+      std::memcpy(&bad[0], "HKNG", 4);
+      PutU32(&bad, 1);
+      PutU32(&bad, 0xFFFFFFFFu);
+      Check(!model.load(bad), "số mục từ vựng bịa quá lớn");
+    }
+    {
+      MiniModel unsorted = toy;
+      std::reverse(unsorted.vocab.begin(), unsorted.vocab.end());
+      Check(!model.load(unsorted.Serialize()), "từ vựng không xếp tăng dần");
+    }
+
+    // --- Nạp được và tra đúng ---
+    const int s_bos = ToyId(toy, "<s>");
+    const int s_buoi = ToyId(toy, "buổi");
+    const int s_toi = ToyId(toy, "tôi");
+    const int s_toi2 = ToyId(toy, "tối");
+    const int s_qua = ToyId(toy, "qua");
+    // "buổi tối" hay gặp; "buổi tôi" không có trong mô hình.
+    toy.bigram.push_back({(uint32_t(s_buoi) << 16) | uint32_t(s_toi2), -0.2f});
+    toy.bigram.push_back({(uint32_t(s_bos) << 16) | uint32_t(s_toi), -0.5f});
+    toy.bigram.push_back({(uint32_t(s_toi) << 16) | uint32_t(s_qua), -0.3f});
+    std::sort(toy.bigram.begin(), toy.bigram.end());
+    toy.trigram.push_back({(uint64_t(s_bos) << 32) | (uint64_t(s_buoi) << 16) |
+                               uint64_t(s_toi2), -0.1f});
+    std::sort(toy.trigram.begin(), toy.trigram.end());
+
+    Check(model.load(toy.Serialize()), "nạp được mô hình đồ chơi");
+    Check(model.vocab_size() == toy.vocab.size(), "đúng số từ vựng");
+    Check(model.bigram_count() == toy.bigram.size(), "đúng số bigram");
+    Check(model.trigram_count() == toy.trigram.size(), "đúng số trigram");
+    Check(model.id(U("buổi")) == s_buoi, "tra được id");
+    Check(model.id(U("khong-co")) == hodion::NgramModel::kNoWord,
+          "chữ ngoài từ vựng trả kNoWord");
+    Check(model.bos() == s_bos, "tìm được mốc đầu câu");
+
+    // Trigram có sẵn thì dùng thẳng; thiếu thì lùi bậc và bị phạt.
+    Check(model.score(s_bos, s_buoi, s_toi2) > -0.15f, "trigram dùng thẳng");
+    const float bi = model.score(s_qua, s_buoi, s_toi2);   // chỉ có bigram
+    Check(bi < -0.2f && bi > -2.0f, "lùi về bigram thì bị phạt");
+    const float uni = model.score(s_qua, s_qua, s_toi2);   // chỉ có unigram
+    Check(uni < bi, "lùi hai bậc thì phạt nặng hơn");
+
+    // --- Đoán theo ngữ cảnh trái ---
+    hodion::SyllableList toyKnown;
+    Check(toyKnown.load("buổi\ntối\ntôi\nqua\n"), "bảng âm tiết đồ chơi");
+    hodion::Config cfg;
+    // "toi" một mình: mô hình không có bằng chứng nghiêng hẳn → im lặng.
+    // Sau "buổi" thì trigram nói rõ là "tối".
+    const std::vector<std::u32string> after_buoi = {U("buổi")};
+    EXPECT_EQ(S(hodion::restore_in_context(after_buoi, U("toi"), cfg, toyKnown,
+                                           model)),
+              std::string("tối"));
+    // Chữ đã có dấu thì không đụng.
+    EXPECT_TRUE(hodion::restore_in_context(after_buoi, U("tối"), cfg, toyKnown,
+                                           model)
+                    .empty());
+    // Không có mô hình thì không đoán gì.
+    {
+      hodion::NgramModel none;
+      EXPECT_TRUE(hodion::restore_in_context(after_buoi, U("toi"), cfg,
+                                             toyKnown, none)
+                      .empty());
+    }
+
+    // --- Viterbi cả câu ---
+    {
+      const std::vector<std::u32string> bare = {U("buổi"), U("toi")};
+      const auto out =
+          hodion::restore_sentence(bare, cfg, toyKnown, model);
+      Check(out.size() == bare.size(), "giữ nguyên số phần tử");
+      EXPECT_EQ(S(out.at(1)), std::string("tối"));
+      // Chuỗi rỗng và chuỗi không đoán được thì trả về y nguyên.
+      EXPECT_TRUE(hodion::restore_sentence({}, cfg, toyKnown, model).empty());
+      const std::vector<std::u32string> odd = {U("zzz"), U("qqq")};
+      const auto same = hodion::restore_sentence(odd, cfg, toyKnown, model);
+      Check(same == odd, "chữ không đoán được thì giữ nguyên");
     }
   }
 

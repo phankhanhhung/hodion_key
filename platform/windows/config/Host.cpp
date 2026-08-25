@@ -17,11 +17,13 @@
 #include <shellapi.h>
 
 #include <string>
+#include <vector>
 
 #include "ConfigDialog.h"
 #include "HostServer.h"
 #include "Settings.h"
 #include "TrayIcon.h"
+#include "hodion/ngram.h"
 #include "hodion/predict.h"
 #include "hodion/utf.h"
 #include "hodion/viet_words.h"
@@ -39,7 +41,9 @@ constexpr UINT WM_TRAY_CALLBACK = WM_APP + 1;
 // từ điển nguồn là GPL-2 (xem tools/build_syllables.py), và để bảng rời thì
 // sau này thay bằng mô hình tốt hơn cũng không phải dịch lại.
 constexpr WCHAR kSyllableFile[] = L"viet-syllables.txt";
+constexpr WCHAR kModelFile[] = L"viet-ngram.bin";
 constexpr DWORD kMaxSyllableFileBytes = 8u * 1024 * 1024;
+constexpr DWORD kMaxModelFileBytes = 512u * 1024 * 1024;
 
 enum MenuId {
   kMenuVietnamese = 100,
@@ -56,6 +60,7 @@ UINT g_showMessage = 0;
 struct Host {
   HINSTANCE instance = nullptr;
   hodion::SyllableList syllables;
+  hodion::NgramModel model;
   HWND window = nullptr;
   TrayIcon tray;
   SettingsWatcher watcher;
@@ -64,6 +69,7 @@ struct Host {
   // Cấu hình mà luồng phục vụ đọc. Chỉ đổi bằng cách ghi nguyên khối từ
   // luồng UI, và mỗi trường đọc ra đều tự nó hợp lệ, nên không cần khoá.
   volatile bool serverVietnameseStyleModern = false;
+  volatile float serverMargin = 2.0f;
   bool inDialog = false;
 };
 
@@ -71,7 +77,8 @@ Host* g_host = nullptr;
 
 // Đọc cả file vào bộ nhớ. Dùng API Win32 chứ không dùng ifstream vì đường
 // dẫn có thể chứa ký tự ngoài ASCII.
-bool ReadWholeFile(const std::wstring& path, std::string* out) {
+bool ReadWholeFile(const std::wstring& path, std::string* out,
+                   DWORD maxBytes) {
   HANDLE file = CreateFileW(path.c_str(), GENERIC_READ, FILE_SHARE_READ,
                             nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL,
                             nullptr);
@@ -79,7 +86,7 @@ bool ReadWholeFile(const std::wstring& path, std::string* out) {
 
   LARGE_INTEGER size;
   if (!GetFileSizeEx(file, &size) || size.QuadPart <= 0 ||
-      size.QuadPart > kMaxSyllableFileBytes) {
+      size.QuadPart > maxBytes) {
     CloseHandle(file);
     return false;
   }
@@ -94,9 +101,10 @@ bool ReadWholeFile(const std::wstring& path, std::string* out) {
   return ok;
 }
 
-// Nạp bảng âm tiết đặt cạnh exe. Không có thì phần đoán dấu không bật được;
-// mọi thứ khác chạy như thường.
-void LoadSyllables(Host& host) {
+// Nạp bảng âm tiết và mô hình đặt cạnh exe. Thiếu bảng thì phần đoán dấu
+// không bật được; có bảng mà thiếu mô hình thì vẫn đoán được những chữ chỉ
+// có một cách viết. Mọi thứ khác chạy như thường trong cả hai trường hợp.
+void LoadLanguageData(Host& host) {
   WCHAR path[MAX_PATH] = {};
   const DWORD len = GetModuleFileNameW(nullptr, path, ARRAYSIZE(path));
   if (len == 0 || len >= ARRAYSIZE(path)) return;
@@ -107,8 +115,28 @@ void LoadSyllables(Host& host) {
   dir.resize(slash + 1);
 
   std::string contents;
-  if (!ReadWholeFile(dir + kSyllableFile, &contents)) return;
-  host.syllables.load(contents);
+  if (ReadWholeFile(dir + kSyllableFile, &contents, kMaxSyllableFileBytes)) {
+    host.syllables.load(contents);
+  }
+  contents.clear();
+  contents.shrink_to_fit();
+  if (ReadWholeFile(dir + kModelFile, &contents, kMaxModelFileBytes)) {
+    host.model.load(contents);
+  }
+}
+
+// Tách payload: trường đầu là chữ vừa gõ, các trường sau là ngữ cảnh trái
+// (cũ nhất trước).
+std::vector<std::u32string> SplitPayload(const std::string& payload) {
+  std::vector<std::u32string> out;
+  size_t start = 0;
+  while (start <= payload.size()) {
+    size_t end = payload.find('\t', start);
+    if (end == std::string::npos) end = payload.size();
+    out.push_back(hodion::utf::from_utf8(payload.substr(start, end - start)));
+    start = end + 1;
+  }
+  return out;
 }
 
 // Chạy trên luồng của HostServer.
@@ -126,9 +154,21 @@ std::string HandleRequest(hodionipc::Op op, const std::string& payload) {
       cfg.tone_style = host->serverVietnameseStyleModern
                            ? hodion::ToneStyle::Modern
                            : hodion::ToneStyle::Traditional;
-      const std::u32string word = hodion::utf::from_utf8(payload);
-      return hodion::utf::to_utf8(
-          hodion::restore_diacritics(word, cfg, host->syllables));
+
+      const std::vector<std::u32string> fields = SplitPayload(payload);
+      if (fields.empty() || fields[0].empty()) return {};
+      const std::u32string& word = fields[0];
+
+      // Chữ chỉ có MỘT cách viết thì không cần mô hình — trả lời chắc chắn.
+      std::u32string answer =
+          hodion::restore_diacritics(word, cfg, host->syllables);
+      if (answer.empty() && !host->model.empty()) {
+        const std::vector<std::u32string> left(fields.begin() + 1,
+                                               fields.end());
+        answer = hodion::restore_in_context(left, word, cfg, host->syllables,
+                                            host->model, host->serverMargin);
+      }
+      return hodion::utf::to_utf8(answer);
     }
 
     default:
@@ -147,6 +187,7 @@ std::wstring Tooltip(const HodionSettings& s) {
 void RefreshTray(Host& host) {
   host.serverVietnameseStyleModern =
       host.settings.engine.tone_style == hodion::ToneStyle::Modern;
+  host.serverMargin = static_cast<float>(host.settings.predict_margin) / 10.0f;
   host.tray.SetState(host.settings.vietnamese_on, Tooltip(host.settings));
 }
 
@@ -354,7 +395,7 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, LPWSTR commandLine, int) {
 
   host.settings = LoadHodionSettings();
   host.watcher.start();
-  LoadSyllables(host);  // phải xong TRƯỚC khi mở kênh
+  LoadLanguageData(host);  // phải xong TRƯỚC khi mở kênh
   // Kênh cho DLL. Mở không được cũng không sao — chỉ là không có phần đoán
   // dấu; mọi thứ khác vẫn chạy.
   host.server.Start(HandleRequest);

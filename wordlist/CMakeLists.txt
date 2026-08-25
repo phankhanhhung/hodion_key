@@ -5,6 +5,7 @@
 add_library(hodion_words STATIC
   src/english_words.cpp
   src/viet_words.cpp
+  src/ngram.cpp
   src/predict.cpp
 )
 target_include_directories(hodion_words PUBLIC include)
@@ -25,3 +26,10 @@ if(MSVC)
   target_compile_options(hodion_wordlist_tests PRIVATE /utf-8)
 endif()
 add_test(NAME wordlist_tests COMMAND hodion_wordlist_tests)
+
+# Công cụ dev: đo độ chính xác của phần đoán dấu (xem tools/train_ngram.py).
+add_executable(hodion_predict_eval tools/predict_eval.cpp)
+target_link_libraries(hodion_predict_eval PRIVATE hodion_words)
+if(MSVC)
+  target_compile_options(hodion_predict_eval PRIVATE /utf-8)
+endif()

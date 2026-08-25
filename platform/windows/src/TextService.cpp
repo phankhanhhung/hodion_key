@@ -191,6 +191,7 @@ STDMETHODIMP CTextService::OnSetFocus(ITfDocumentMgr* /*pdimFocus*/,
   ReloadSettingsIfChanged();
   // Ô mới có thể là URL/mật khẩu — phải hỏi lại kiểu ô.
   InvalidateInputScope();
+  ResetPredictContext();
   return S_OK;
 }
 
@@ -400,6 +401,7 @@ void CTextService::PushOpenCloseCompartment() {
 void CTextService::SetVietnamese(bool on, bool persist) {
   if (vietnamese_ == on) return;
   FinalizeComposition();
+  ResetPredictContext();
   vietnamese_ = on;
   PushOpenCloseCompartment();
   if (persist) {

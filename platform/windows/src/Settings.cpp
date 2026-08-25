@@ -68,6 +68,8 @@ HodionSettings LoadHodionSettings() {
   s.vietnamese_on = ReadDword(key, L"VietnameseOn", 1) != 0;
   s.skip_input_scopes = ReadDword(key, L"SkipInputScopes", 1) != 0;
   s.auto_diacritics = ReadDword(key, L"AutoDiacritics", 0) != 0;
+  s.predict_margin = ReadDword(key, L"PredictMargin", 20);
+  if (s.predict_margin > 200) s.predict_margin = 20;  // giá trị hỏng
   s.toggle.vk = ReadDword(key, L"ToggleKey", kPresets[0].key.vk);
   s.toggle.mods = ReadDword(key, L"ToggleMods", kPresets[0].key.mods);
   // Giá trị hỏng hoặc thiếu modifier sẽ chiếm mất một phím gõ bình thường.
@@ -99,6 +101,7 @@ bool SaveHodionSettings(const HodionSettings& s) {
   ok &= WriteDword(key, L"VietnameseOn", s.vietnamese_on ? 1 : 0);
   ok &= WriteDword(key, L"SkipInputScopes", s.skip_input_scopes ? 1 : 0);
   ok &= WriteDword(key, L"AutoDiacritics", s.auto_diacritics ? 1 : 0);
+  ok &= WriteDword(key, L"PredictMargin", s.predict_margin);
   ok &= WriteDword(key, L"ToggleKey", s.toggle.vk);
   ok &= WriteDword(key, L"ToggleMods", s.toggle.mods);
 

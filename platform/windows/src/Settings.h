@@ -39,6 +39,10 @@ struct HodionSettings {
   // Mặc định TẮT: nó đổi thứ người dùng vừa gõ, nên phải là lựa chọn
   // tường minh chứ không phải mặc định.
   bool auto_diacritics = false;
+  // Ngưỡng tin cậy của mô hình, tính theo phần mười (20 = 2,0). Cao hơn =
+  // ít đổi hơn nhưng đúng hơn. Với bộ gõ thì đổi SAI tệ hơn không đổi: chữ
+  // còn không dấu thì nhìn thấy ngay, chữ sai dấu thì trông như đã xong.
+  unsigned predict_margin = 20;
 };
 
 // Danh sách phím chuyển dựng sẵn cho app cấu hình (phần tử 0 là mặc định).
