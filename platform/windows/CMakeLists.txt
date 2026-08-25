@@ -12,6 +12,7 @@ add_library(hodionkey_tsf SHARED
   src/HostChannel.cpp
   src/HostClient.cpp
   src/KeyHandler.cpp
+  src/Log.cpp
   src/Predict.cpp
   src/Reconversion.cpp
   src/Register.cpp

@@ -13,6 +13,7 @@
 #include <string>
 #include <vector>
 
+#include "Log.h"
 #include "TextService.h"
 #include "WordScan.h"
 #include "hodion/reconvert.h"
@@ -501,7 +502,10 @@ std::vector<std::wstring> CTextService::HostCandidates(
 }
 
 HRESULT CTextService::CycleWordDiacritics(ITfContext* pic) {
-  if (!pic) return S_OK;
+  if (!pic) {
+    HODION_LOG(L"  xoay dấu: không có context");
+    return S_OK;
+  }
 
   // Đang gõ dở thì chốt trước: lúc đó phần đoán dấu mới chạy, và từ mới có
   // mặt trong tài liệu để mà xoay.
@@ -509,25 +513,41 @@ HRESULT CTextService::CycleWordDiacritics(ITfContext* pic) {
 
   com_ptr<ITfRange> word;
   std::wstring text;
-  RequestSyncEdit(pic, TF_ES_SYNC | TF_ES_READ, [&](TfEditCookie ec) {
-    TF_SELECTION sel = {};
-    ULONG fetched = 0;
-    if (FAILED(pic->GetSelection(ec, TF_DEFAULT_SELECTION, 1, &sel,
-                                 &fetched)) ||
-        fetched != 1) {
-      return E_FAIL;
-    }
-    com_ptr<ITfRange> range;
-    range.attach(sel.range);  // GetSelection trả về đã AddRef
-    return FindReconvertRange(ec, range.get(), word.put(), &text);
-  });
-  if (!word || text.empty()) return S_OK;
+  HRESULT sel_hr = S_OK;
+  const HRESULT session_hr =
+      RequestSyncEdit(pic, TF_ES_SYNC | TF_ES_READ, [&](TfEditCookie ec) {
+        TF_SELECTION sel = {};
+        ULONG fetched = 0;
+        sel_hr = pic->GetSelection(ec, TF_DEFAULT_SELECTION, 1, &sel, &fetched);
+        if (FAILED(sel_hr) || fetched != 1) {
+          HODION_LOG(L"  GetSelection hr=0x%08lX fetched=%lu",
+                     static_cast<unsigned long>(sel_hr), fetched);
+          return E_FAIL;
+        }
+        com_ptr<ITfRange> range;
+        range.attach(sel.range);  // GetSelection trả về đã AddRef
+        const HRESULT hr = FindReconvertRange(ec, range.get(), word.put(), &text);
+        HODION_LOG(L"  FindReconvertRange hr=0x%08lX text=\"%s\"",
+                   static_cast<unsigned long>(hr), text.c_str());
+        return hr;
+      });
+  if (!word || text.empty()) {
+    // Ứng dụng từ chối edit session đồng bộ là ca hay gặp nhất, và nó KHÔNG
+    // phải lỗi của ta — nhưng phải phân biệt được với "không tìm ra từ".
+    HODION_LOG(L"  bỏ qua: edit session hr=0x%08lX, %s",
+               static_cast<unsigned long>(session_hr),
+               word ? L"có range nhưng chữ rỗng" : L"không dựng được range");
+    return S_OK;
+  }
 
   // Ưu tiên danh sách của tiến trình nền: nó biết chữ nào CÓ THẬT và xếp
   // theo ngữ cảnh, nên phương án đầu thường đã đúng. Không có host thì dùng
   // danh sách cục bộ — chỉ hợp lệ về cấu trúc, nhưng vẫn xoay được.
   std::vector<std::wstring> items = HostCandidates(text);
+  const bool from_host = !items.empty();
   if (items.empty()) items = ReconvertCandidates(text);
+  HODION_LOG(L"  %zu phương án (%s)", items.size(),
+             from_host ? L"tiến trình nền" : L"engine, không có nền");
 
   // Cắt vòng cho ngắn, nhưng chuỗi KHÔNG DẤU gốc phải sống sót: nó là
   // đường về chỗ cũ, và bản thân nó cũng có thể là một chữ có thật đứng
@@ -539,7 +559,10 @@ HRESULT CTextService::CycleWordDiacritics(ITfContext* pic) {
       items.back() = bare;
     }
   }
-  if (items.size() < 2) return S_OK;
+  if (items.size() < 2) {
+    HODION_LOG(L"  bỏ qua: không đủ hai phương án để xoay");
+    return S_OK;
+  }
 
   size_t next = 0;
   for (size_t i = 0; i < items.size(); ++i) {
@@ -551,6 +574,8 @@ HRESULT CTextService::CycleWordDiacritics(ITfContext* pic) {
   if (items[next] == text) return S_OK;
 
   const HRESULT hr = ApplyReconversion(pic, word.get(), text, items[next]);
+  HODION_LOG(L"  ghi \"%s\" -> \"%s\" hr=0x%08lX", text.c_str(),
+             items[next].c_str(), static_cast<unsigned long>(hr));
   // Giữ ngữ cảnh khớp với chữ thật sự đang nằm trên màn hình, để lần bấm
   // sau vẫn xếp hạng đúng.
   if (SUCCEEDED(hr) && !recentWords_.empty() && recentWords_.back() == text) {

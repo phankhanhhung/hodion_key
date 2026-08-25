@@ -161,3 +161,22 @@ Nếu hỏng, cho tôi biết càng cụ thể càng tốt:
 - Ứng dụng nào, gõ chuỗi phím gì, ra kết quả gì, đáng lẽ phải ra gì?
 - Bộ cài có in ra lỗi gì không? Nhật ký nằm ở
   %TEMP%\HodionKey-CaiDat.log (phần chạy bằng quyền quản trị).
+
+NHẬT KÝ CHẨN ĐOÁN (khi gõ sai / phím tắt không ăn)
+--------------------------------------------------
+Bộ gõ nằm trong tiến trình của ứng dụng khác nên không có chỗ nào báo lỗi.
+Bật nhật ký lên thì đọc được đúng chỗ nào trong chuỗi xử lý đã dừng:
+
+    reg add HKCU\Software\HodionKey /v Debug /t REG_DWORD /d 1 /f
+
+Rồi TẮT VÀ MỞ LẠI ứng dụng đang gõ (cờ đọc lúc bộ gõ khởi động trong tiến
+trình đó), làm lại thao tác bị lỗi, rồi mở file:
+
+    %LOCALAPPDATA%\HodionKey\hodionkey.log
+
+Xong nhớ tắt đi:
+
+    reg add HKCU\Software\HodionKey /v Debug /t REG_DWORD /d 0 /f
+
+Nhật ký ghi tên ứng dụng, phím tắt nào nổ, tìm được từ nào quanh con trỏ,
+có bao nhiêu phương án và lấy từ đâu, ghi đè thành công hay không.

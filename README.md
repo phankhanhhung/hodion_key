@@ -221,6 +221,24 @@ Bốn phím đầu đăng ký với Windows nên chạy cả khi không gõ dở
 không — nó **chỉ có hiệu lực khi đang gõ dở một từ**, nhờ vậy
 `Ctrl + Backspace` (xóa một từ) của ứng dụng vẫn nguyên vẹn lúc bình thường.
 
+### Khi phím tắt không ăn
+
+Bộ gõ nằm trong tiến trình của ứng dụng khác: không cửa sổ, không console,
+nên "không thấy gì" là triệu chứng chung của cả chục nguyên nhân khác nhau
+— ứng dụng từ chối edit session, không tìm ra từ quanh con trỏ, tổ hợp phím
+đã bị một bộ gõ khác chiếm mất. Bật nhật ký chẩn đoán lên là phân biệt được:
+
+```bat
+reg add HKCU\Software\HodionKey /v Debug /t REG_DWORD /d 1 /f
+```
+
+Rồi **tắt và mở lại ứng dụng đang gõ**, làm lại thao tác, đọc
+`%LOCALAPPDATA%\HodionKey\hodionkey.log`. Xong thì đặt lại `/d 0`.
+
+Nó ghi: phím tắt nào nổ và `PreserveKey` có nhận không, tìm được từ nào
+quanh con trỏ, có mấy phương án và lấy từ tiến trình nền hay từ engine, ghi
+đè thành công hay không — kèm mã HRESULT ở mỗi bước.
+
 Trạng thái Việt/Anh dùng chung cho mọi ứng dụng đang gõ (lưu ở registry),
 đồng bộ với chỉ báo IME của Windows và với icon ở khay hệ thống — đổi ở đâu
 cũng khớp.

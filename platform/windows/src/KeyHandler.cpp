@@ -1,5 +1,6 @@
 // Xử lý phím: phân loại (OnTestKeyDown/OnKeyDown phải trả lời giống nhau),
 // dịch virtual key → ký tự, và đẩy vào engine qua edit session đồng bộ.
+#include "Log.h"
 #include "TextService.h"
 
 namespace {
@@ -278,6 +279,7 @@ STDMETHODIMP CTextService::OnPreservedKey(ITfContext* pic, REFGUID rguid,
   }
 
   if (IsEqualGUID(rguid, GUID_HodionKeyCycle)) {
+    HODION_LOG(L"phím xoay dấu: pic=%p", static_cast<void*>(pic));
     return CycleWordDiacritics(pic);
   }
 

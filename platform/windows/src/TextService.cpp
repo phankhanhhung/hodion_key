@@ -1,3 +1,4 @@
+#include "Log.h"
 #include "TextService.h"
 
 #include <cwchar>
@@ -348,6 +349,7 @@ void CTextService::AbandonComposition() {
 // ---- Cấu hình & bật/tắt tiếng Việt ---------------------------------------
 
 void CTextService::ApplySettings(const HodionSettings& s) {
+  HodionLogRefresh();
   engine_.set_config(s.engine);
   vietnamese_ = s.vietnamese_on;
   skipInputScopes_ = s.skip_input_scopes;
@@ -431,8 +433,13 @@ void CTextService::RegisterOneKey(REFGUID guid, const ToggleKey& key,
   TF_PRESERVEDKEY pk;
   pk.uVKey = key.vk;
   pk.uModifiers = key.mods;
-  keystrokeMgr->PreserveKey(clientId_, guid, &pk, description,
-                            static_cast<ULONG>(wcslen(description)));
+  // Bắt mã lỗi: PreserveKey hỏng khi tổ hợp đã bị một text service khác
+  // chiếm, và hỏng ở đây thì phím im lặng không bao giờ chạy.
+  const HRESULT hr =
+      keystrokeMgr->PreserveKey(clientId_, guid, &pk, description,
+                                static_cast<ULONG>(wcslen(description)));
+  HODION_LOG(L"PreserveKey %s vk=0x%02X mods=%u -> hr=0x%08lX", description,
+             key.vk, key.mods, static_cast<unsigned long>(hr));
 }
 
 void CTextService::RegisterHotKeys() {
