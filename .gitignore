@@ -1,0 +1,10 @@
+build/
+build-*/
+out/
+.vs/
+.cache/
+CMakeUserPresets.json
+build-cov/
+build-asan/
+__pycache__/
+*.pyc

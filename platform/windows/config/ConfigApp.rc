@@ -1,0 +1,125 @@
+// Chỉ mô tả bố cục; toàn bộ nhãn tiếng Việt được gán lúc chạy bằng
+// SetDlgItemTextW (tránh lệ thuộc code page của rc.exe / windres).
+#include <windows.h>
+#include "resource.h"
+#include "hodion_version.h"
+
+VS_VERSION_INFO VERSIONINFO
+  FILEVERSION    HODION_VERSION_MAJOR, HODION_VERSION_MINOR, HODION_VERSION_PATCH, 0
+  PRODUCTVERSION HODION_VERSION_MAJOR, HODION_VERSION_MINOR, HODION_VERSION_PATCH, 0
+  FILEFLAGSMASK  VS_FFI_FILEFLAGSMASK
+  FILEFLAGS      0
+  FILEOS         VOS_NT_WINDOWS32
+  FILETYPE       VFT_APP
+  FILESUBTYPE    VFT2_UNKNOWN
+BEGIN
+  BLOCK "StringFileInfo"
+  BEGIN
+    BLOCK "000004b0"
+    BEGIN
+      VALUE "CompanyName",      "HodionKey"
+      VALUE "FileDescription",  "HodionKey - tien trinh nen va cau hinh"
+      VALUE "FileVersion",      HODION_VERSION_STR
+      VALUE "InternalName",     "HodionKeyConfig"
+      VALUE "OriginalFilename", "HodionKeyConfig.exe"
+      VALUE "ProductName",      "HodionKey"
+      VALUE "ProductVersion",   HODION_VERSION_STR
+    END
+  END
+  BLOCK "VarFileInfo"
+  BEGIN
+    VALUE "Translation", 0x0000, 1200
+  END
+END
+
+#ifndef RT_MANIFEST
+#define RT_MANIFEST 24
+#endif
+
+// Chỉ nhúng manifest ở đây khi trình liên kết không tự sinh manifest (MinGW).
+// MSVC luôn tự sinh một cái, nhúng thêm từ .rc sẽ trùng resource và hỏng
+// link (CVT1100). Ở MSVC, file manifest được đưa thẳng cho linker qua
+// CMake để nó gộp vào manifest của chính nó.
+#ifdef HODION_RC_MANIFEST
+1 RT_MANIFEST "HodionKeyConfig.manifest"
+#endif
+
+// Icon: xem tools/make_icons.py. Trạng thái Việt/Anh khác nhau ở CHỮ (V/E)
+// chứ không chỉ ở màu, để phân biệt được cả ở 16x16 lẫn khi mù màu.
+IDI_APP     ICON "icons/hodionkey.ico"
+IDI_TRAY_VI ICON "icons/hodionkey-vi.ico"
+IDI_TRAY_EN ICON "icons/hodionkey-en.ico"
+
+IDD_CONFIG DIALOGEX 0, 0, 420, 287
+STYLE DS_SETFONT | DS_MODALFRAME | DS_CENTER | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "HodionKey"
+FONT 8, "MS Shell Dlg", 400, 0, 0x1
+BEGIN
+    // --- cot trai ---
+    GROUPBOX        "Input method", IDC_GRP_METHOD, 7, 7, 200, 46
+    CONTROL         "Telex", IDC_METHOD_TELEX, "Button",
+                    BS_AUTORADIOBUTTON | WS_GROUP | WS_TABSTOP, 14, 21, 186, 12
+    CONTROL         "VNI", IDC_METHOD_VNI, "Button",
+                    BS_AUTORADIOBUTTON, 14, 35, 186, 12
+
+    GROUPBOX        "Tone placement", IDC_GRP_TONE, 7, 59, 200, 46
+    CONTROL         "Traditional", IDC_TONE_TRADITIONAL, "Button",
+                    BS_AUTORADIOBUTTON | WS_GROUP | WS_TABSTOP, 14, 73, 186, 12
+    CONTROL         "Modern", IDC_TONE_MODERN, "Button",
+                    BS_AUTORADIOBUTTON, 14, 87, 186, 12
+
+    GROUPBOX        "Options", IDC_GRP_OPTIONS, 7, 111, 200, 92
+    CONTROL         "Free marking", IDC_OPT_FREEMARKING, "Button",
+                    BS_AUTOCHECKBOX | WS_GROUP | WS_TABSTOP, 14, 125, 186, 12
+    CONTROL         "Spell check", IDC_OPT_SPELLCHECK, "Button",
+                    BS_AUTOCHECKBOX | WS_TABSTOP, 14, 140, 186, 12
+    CONTROL         "Restore non-Vietnamese words", IDC_OPT_RESTORE, "Button",
+                    BS_AUTOCHECKBOX | WS_TABSTOP, 14, 155, 186, 12
+    CONTROL         "W shorthand", IDC_OPT_WSHORTHAND, "Button",
+                    BS_AUTOCHECKBOX | WS_TABSTOP, 14, 170, 186, 12
+    CONTROL         "Telex brackets", IDC_OPT_BRACKETS, "Button",
+                    BS_AUTOCHECKBOX | WS_TABSTOP, 14, 185, 186, 12
+
+    CONTROL         "Vietnamese input is on", IDC_CHK_VIETNAMESE, "Button",
+                    BS_AUTOCHECKBOX | WS_GROUP | WS_TABSTOP, 14, 210, 190, 12
+    LTEXT           "", IDC_LBL_HINT, 14, 225, 190, 18
+
+    // --- cot phai ---
+    GROUPBOX        "Mixed Vietnamese / English", IDC_GRP_MIXED, 215, 7, 198, 62
+    CONTROL         "Skip URL / e-mail / password fields", IDC_OPT_INPUTSCOPE,
+                    "Button", BS_AUTOCHECKBOX | WS_GROUP | WS_TABSTOP,
+                    222, 21, 184, 12
+    CONTROL         "Restore known English words", IDC_OPT_ENGLISH,
+                    "Button", BS_AUTOCHECKBOX | WS_TABSTOP, 222, 36, 184, 12
+    LTEXT           "", IDC_LBL_MIXEDHINT, 222, 51, 184, 10
+
+    GROUPBOX        "Automatic diacritics", IDC_GRP_PREDICT, 215, 73, 198, 45
+    CONTROL         "Add diacritics to toneless words", IDC_OPT_AUTODIACRITIC,
+                    "Button", BS_AUTOCHECKBOX | WS_GROUP | WS_TABSTOP,
+                    222, 87, 184, 12
+    LTEXT           "", IDC_LBL_PREDICTHINT, 222, 102, 184, 10
+
+    GROUPBOX        "Shortcut keys", IDC_GRP_KEYS, 215, 124, 198, 134
+    LTEXT           "Vietnamese / English:", IDC_LBL_KEY_TOGGLE,
+                    222, 139, 74, 10
+    CONTROL         "", IDC_HOTKEY_TOGGLE, "msctls_hotkey32",
+                    WS_GROUP | WS_TABSTOP, 300, 137, 106, 14
+    LTEXT           "Telex / VNI:", IDC_LBL_KEY_METHOD, 222, 157, 74, 10
+    CONTROL         "", IDC_HOTKEY_METHOD, "msctls_hotkey32",
+                    WS_TABSTOP, 300, 155, 106, 14
+    LTEXT           "Automatic diacritics:", IDC_LBL_KEY_PREDICT,
+                    222, 175, 74, 10
+    CONTROL         "", IDC_HOTKEY_PREDICT, "msctls_hotkey32",
+                    WS_TABSTOP, 300, 173, 106, 14
+    LTEXT           "Undo for one word:", IDC_LBL_KEY_CANCEL, 222, 193, 74, 10
+    CONTROL         "", IDC_HOTKEY_CANCEL, "msctls_hotkey32",
+                    WS_TABSTOP, 300, 191, 106, 14
+    LTEXT           "Next spelling:", IDC_LBL_KEY_CYCLE, 222, 211, 74, 10
+    CONTROL         "", IDC_HOTKEY_CYCLE, "msctls_hotkey32",
+                    WS_TABSTOP, 300, 209, 106, 14
+    LTEXT           "", IDC_LBL_KEYHINT, 222, 228, 184, 26
+
+    PUSHBUTTON      "Defaults", IDC_DEFAULTS, 7, 264, 80, 16, WS_GROUP | WS_TABSTOP
+    DEFPUSHBUTTON   "OK", IDOK, 279, 264, 64, 16, WS_TABSTOP
+    PUSHBUTTON      "Cancel", IDCANCEL, 349, 264, 64, 16, WS_TABSTOP
+END

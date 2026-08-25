@@ -1,0 +1,9 @@
+// Sinh từ hodion_version.h.in — số phiên bản chỉ khai MỘT chỗ, ở
+// CMakeLists.txt gốc. Dùng cho VERSIONINFO của DLL lẫn app cấu hình, và
+// bộ cài đọc lại chính con số đó từ file exe.
+#pragma once
+
+#define HODION_VERSION_MAJOR @PROJECT_VERSION_MAJOR@
+#define HODION_VERSION_MINOR @PROJECT_VERSION_MINOR@
+#define HODION_VERSION_PATCH @PROJECT_VERSION_PATCH@
+#define HODION_VERSION_STR "@PROJECT_VERSION@"

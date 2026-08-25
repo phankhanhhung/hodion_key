@@ -1,0 +1,163 @@
+HodionKey — bản thử nghiệm
+==========================
+Phiên bản: @VERSION@
+Commit:    @COMMIT@
+Build:     @BUILD@
+
+⚠ ĐỌC KỸ TRƯỚC KHI CÀI
+----------------------
+Đây vẫn là BẢN THỬ. Tầng TSF đã được chạy thử trên Windows thật và gõ
+được, nhưng mới là một lần thử — chưa đi qua nhiều ứng dụng khác nhau.
+Engine gõ thì đã test rất kỹ (156.105 lượt kiểm tra, fuzz hàng chục
+triệu lượt, sanitizer sạch, mutation testing).
+
+Chưa kiểm chứng: bản 32-bit (chưa ai chạy thử ở đâu), và hành vi trong
+các ứng dụng gõ khó tính (Electron, Java, remote desktop, game).
+
+Rủi ro thực tế: gõ sai trong vài ứng dụng, hoặc làm ứng dụng đang gõ bị
+treo. Nên thử trên máy phụ hoặc máy ảo trước. File chưa ký số nên
+Windows sẽ cảnh báo.
+
+CÁCH CÀI
+--------
+1. Giải nén CẢ gói ra một thư mục bất kỳ (Downloads cũng được — bộ cài
+   sẽ tự chép vào C:\Program Files\HodionKey, nên xoá chỗ giải nén sau
+   khi cài xong cũng không sao).
+2. Bấm đúp CaiDat.bat. KHÔNG cần "Run as administrator" — nó tự xin
+   quyền cho đúng phần cần quyền.
+3. Bấm Win+Space để chuyển sang bàn phím "HodionKey".
+
+Bộ cài làm sẵn hộ bạn: chép file, đăng ký cả bản 64-bit lẫn 32-bit,
+thêm "Tiếng Việt" vào danh sách ngôn ngữ, đặt khởi động cùng Windows,
+bật tiến trình nền, và ghi mục gỡ cài đặt vào Settings > Apps.
+
+Không thích cái nào thì tắt cái đó:
+  CaiDat.bat -NoLanguage     không đụng vào danh sách ngôn ngữ
+  CaiDat.bat -NoAutoStart    không khởi động cùng Windows
+  CaiDat.bat -NoLaunch       không bật tiến trình nền ngay
+  CaiDat.bat -InstallDir D:\HodionKey    cài chỗ khác
+
+VÌ SAO KHÔNG CHẠY BẰNG QUYỀN ADMIN
+----------------------------------
+Bộ cài cố ý tách hai phần. Phần chép file và đăng ký DLL cần quyền quản
+trị, nó tự xin. Phần còn lại — ngôn ngữ, khởi động cùng Windows, bật
+tiến trình nền — chạy dưới quyền NGƯỜI DÙNG, và phải như vậy: tiến trình
+nền mà chạy quyền admin thì nó nằm ở mức toàn vẹn cao hơn các ứng dụng
+thường, các ứng dụng đó sẽ không nối được vào named pipe của nó, và phần
+đoán dấu lặng lẽ biến mất mà không báo gì.
+
+Chạy CaiDat.bat bằng "Run as administrator" vẫn được — script nhận ra và
+vẫn bật tiến trình nền qua explorer.exe để nó rơi về quyền thường.
+
+CÁCH DÙNG
+---------
+- Ctrl+Space     : bật/tắt gõ tiếng Việt (không cần đổi bàn phím)
+- Esc            : trả lại đúng chuỗi phím vừa gõ (huỷ biến đổi)
+- Ctrl+Backspace : đang gõ dở thì bỏ dấu cho RIÊNG từ đó, gõ tiếp bình
+                   thường (dành cho từ tiếng Anh lọt giữa câu)
+- Ctrl+Shift+Space: xoay từ ngay trước con trỏ qua các cách viết có dấu
+                   (gõ duong rồi bấm: dương -> đường -> ... -> duong)
+- Cấu hình       : chạy x64\HodionKeyConfig.exe
+                   (đổi được TẤT CẢ các phím trên, trừ Esc)
+
+Thử nhanh: gõ  vieejt nam  →  việt nam
+           gõ  dduongwf    →  đường
+           gõ  thuowr      →  thuở
+
+GÕ TRỘN VIỆT - ANH
+------------------
+- Ô địa chỉ web, ô email, ô mật khẩu, ô số: tự tắt tiếng Việt (bộ gõ hỏi
+  thẳng ứng dụng kiểu ô, không đoán).
+- Từ tiếng Anh đã biết được trả lại nguyên chữ lúc chốt từ:
+  gõ  meeting  →  meeting   (không có tính năng này thì ra "mêting")
+- Những từ mà chuỗi phím trùng đúng một chữ tiếng Việt thật thì bộ gõ
+  KHÔNG tự quyết, vì không có cách nào biết bạn muốn gì:
+  gõ  bans → bán,  cans → cán,  bust → bút,  test → tét
+  Muốn ra từ tiếng Anh thì bấm Ctrl+Backspace giữa chừng.
+- Tắt được từng thứ trong app cấu hình.
+
+SỬA DẤU CHO CHỮ ĐÃ GÕ RỒI
+-------------------------
+Bôi đen một chữ (hoặc đặt con trỏ vào giữa nó) rồi gọi lệnh chuyển đổi
+lại của ứng dụng — Word, WordPad và nhiều ứng dụng Office có. HodionKey
+đưa ra mọi âm tiết cùng chữ cái gốc, chữ đang có xếp đầu:
+  duong  ->  duông, duống, ..., dương, dường, ..., đường
+Ứng dụng nào không hỗ trợ thì dùng Ctrl+Shift+Space: nó xoay từ ngay
+trước con trỏ qua các cách viết có dấu, không cần ứng dụng hỗ trợ gì.
+Thứ tự xoay theo ngữ cảnh nếu tiến trình nền đang chạy:
+  con duong  ->  đường     (bấm tiếp: dương, duồng, ...)
+  cây duong  ->  dương     (bấm tiếp: đường, ...)
+Chuỗi không dấu bạn gõ ban đầu cũng nằm trong vòng xoay, nên bấm quá tay
+vẫn quay về được.
+
+GIẤY PHÉP TỪ ĐIỂN
+-----------------
+Bảng từ tiếng Anh lấy từ SCOWL của Kevin Atkinson; thông báo bản quyền
+bắt buộc nằm ở GIAY-PHEP-TU-DIEN.txt trong gói này.
+
+NÂNG CẤP
+--------
+Chạy CaiDat.bat của bản mới, thế thôi. Nó dừng tiến trình nền, gỡ đăng
+ký bản cũ nếu bản cũ nằm ở thư mục khác, rồi cài đè.
+
+HodionKey.dll nằm trong MỌI ứng dụng đang gõ, nên có thể có file không
+ghi đè được lúc đó. Gặp vậy bộ cài đặt bản mới cạnh bản cũ và nhờ
+Windows tráo lúc khởi động lại — nó sẽ nói rõ, và bản cũ vẫn chạy bình
+thường cho tới lúc đó.
+
+GỠ CÀI
+------
+Settings > Apps > HodionKey > Uninstall. Hoặc bấm đúp GoCaiDat.bat
+(trong thư mục đã cài, hoặc trong gói tải về).
+
+Cấu hình ở HKCU\Software\HodionKey được GIỮ LẠI, để cài lại là còn
+nguyên. Muốn xoá sạch: GoCaiDat.bat -RemoveSettings
+
+VÌ SAO CÓ CẢ x64 LẪN x86
+------------------------
+IME 64-bit chỉ nạp được vào tiến trình 64-bit. Muốn gõ được trong ứng
+dụng 32-bit (nhiều phần mềm cũ) thì phải đăng ký cả bản 32-bit — script
+cài đặt làm sẵn cả hai.
+
+Bản x86 mới chỉ được biên dịch và chạy qua bộ test của engine, chưa từng
+gõ thật ở đâu.
+
+ĐOÁN DẤU CHO CHỮ KHÔNG DẤU
+--------------------------
+Bảng âm tiết (viet-syllables.txt) CÓ trong gói này, bộ cài đặt sẵn vào
+thư mục cài. Nhờ nó, ngay sau khi cài:
+  - chữ chỉ có MỘT cách viết được thêm dấu chắc chắn
+    (gõ nguyet -> nguyệt, thuo -> thuở)
+  - phím Ctrl+Shift+Space xếp chữ CÓ THẬT lên trước chữ chỉ đúng cấu trúc
+
+Phần đoán theo NGỮ CẢNH cần thêm mô hình 3-gram (viet-ngram.bin): 13 MB
+bản gọn, hoặc 46 MB bản đầy đủ. File này không đi kèm vì quá lớn cho một
+gói cài. Hai cách lấy:
+
+  1. Trong repo trên GitHub: tab Actions > workflow "Dựng dữ liệu ngôn
+     ngữ" > Run workflow > chọn "small". Chạy xong thì tải artifact
+     HodionKey-data-small về, trong đó có sẵn cả mô hình lẫn bảng.
+
+  2. Tự train trên máy mình — xem README, mục "Dựng lại dữ liệu".
+     Tóm tắt: tải Wikipedia bằng tools/extract_wikipedia.py rồi chạy
+     tools/train_ngram.py --preset small. Mất khoảng 10 phút.
+
+Rồi chép viet-ngram.bin vào thư mục cài (C:\Program Files\HodionKey),
+NGANG HÀNG với x64\ và x86\ chứ không phải bên trong.
+
+QUAN TRỌNG: chép xong phải khởi động lại tiến trình nền — nó nạp dữ liệu
+đúng một lần lúc mở. Chuột phải icon khay > Thoát, rồi chạy lại
+HodionKeyConfig.exe.
+
+Thiếu mô hình thì mọi thứ khác vẫn chạy y nguyên.
+
+Bảng âm tiết sinh từ Wikipedia tiếng Việt, giấy phép CC BY-SA — ghi nguồn
+đầy đủ ở GIAY-PHEP-DU-LIEU.txt trong gói.
+
+BÁO LỖI
+-------
+Nếu hỏng, cho tôi biết càng cụ thể càng tốt:
+- Bộ gõ có hiện trong danh sách bàn phím không?
+- Ứng dụng nào, gõ chuỗi phím gì, ra kết quả gì, đáng lẽ phải ra gì?
+- Bộ cài có in ra lỗi gì không? Nhật ký nằm ở
+  %TEMP%\HodionKey-CaiDat.log (phần chạy bằng quyền quản trị).

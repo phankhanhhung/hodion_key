@@ -1,0 +1,36 @@
+#include "HodionTsf.h"
+
+// CLSID của COM server (đồng thời là ID text service đăng ký với TSF).
+// {3FBE1B8E-9C52-4B7A-8E1D-5A642F0C917B}
+const CLSID CLSID_HodionKeyService = {
+    0x3fbe1b8e, 0x9c52, 0x4b7a, {0x8e, 0x1d, 0x5a, 0x64, 0x2f, 0x0c, 0x91, 0x7b}};
+
+// Language profile tiếng Việt của HodionKey.
+// {A1E6F0D3-27C4-45B9-9B02-8F33D16E4A25}
+const GUID GUID_HodionKeyProfile = {
+    0xa1e6f0d3, 0x27c4, 0x45b9, {0x9b, 0x02, 0x8f, 0x33, 0xd1, 0x6e, 0x4a, 0x25}};
+
+// Display attribute cho đoạn văn bản đang ghép (gạch chân).
+// {5C8D94A7-1E3F-4D62-B077-C94E288A63F1}
+const GUID GUID_HodionKeyDisplayAttributeInput = {
+    0x5c8d94a7, 0x1e3f, 0x4d62, {0xb0, 0x77, 0xc9, 0x4e, 0x28, 0x8a, 0x63, 0xf1}};
+
+// Preserved key: phím chuyển Việt/Anh.
+// {0B5E7C46-9D31-4A88-B3F0-6E2A47D1C58C}
+const GUID GUID_HodionKeyToggle = {
+    0x0b5e7c46, 0x9d31, 0x4a88, {0xb3, 0xf0, 0x6e, 0x2a, 0x47, 0xd1, 0xc5, 0x8c}};
+
+// Preserved key: chuyển Telex / VNI.
+// {7A44C1E2-3B58-4D06-9C71-2E8F5B0A6D34}
+const GUID GUID_HodionKeyMethod = {
+    0x7a44c1e2, 0x3b58, 0x4d06, {0x9c, 0x71, 0x2e, 0x8f, 0x5b, 0x0a, 0x6d, 0x34}};
+
+// Preserved key: xoay vòng qua các phương án dấu.
+// {2F8B7D51-6C40-49A3-BE12-7D05A4E38C96}
+const GUID GUID_HodionKeyCycle = {
+    0x2f8b7d51, 0x6c40, 0x49a3, {0xbe, 0x12, 0x7d, 0x05, 0xa4, 0xe3, 0x8c, 0x96}};
+
+// Preserved key: bật/tắt tự thêm dấu.
+// {D9026F13-84AC-4E7B-A5D8-13C6F9B2470E}
+const GUID GUID_HodionKeyPredict = {
+    0xd9026f13, 0x84ac, 0x4e7b, {0xa5, 0xd8, 0x13, 0xc6, 0xf9, 0xb2, 0x47, 0x0e}};

@@ -1,0 +1,138 @@
+# Dựng lại TOÀN BỘ dữ liệu ngôn ngữ từ đầu: tải Wikipedia tiếng Việt, trích
+# văn bản, dựng bảng âm tiết, train mô hình 3-gram, rồi đo chất lượng trên
+# phần văn bản KHÔNG dùng để train.
+#
+# Chạy tay (tab Actions > "Dựng dữ liệu ngôn ngữ" > Run workflow) vì nó tốn
+# vài chục phút và không có gì thay đổi giữa các lần commit. Mục đích: mô
+# hình 46 MB không nằm trong repo được, nhưng cũng không được phép là một
+# khối nhị phân bí ẩn — ai cũng bấm một nút là dựng lại được y hệt, và thấy
+# luôn con số chất lượng của chính bản vừa dựng.
+name: Dựng dữ liệu ngôn ngữ
+
+on:
+  workflow_dispatch:
+    inputs:
+      preset:
+        description: "Cỡ mô hình (small ~13 MB, full ~46 MB)"
+        type: choice
+        options: [small, full]
+        default: small
+      corpus_mb:
+        description: "Số MB văn bản lấy từ Wikipedia"
+        default: "500"
+
+jobs:
+  build-data:
+    name: Bảng âm tiết + mô hình 3-gram
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Dựng công cụ
+        run: |
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+          cmake --build build --target hodion_wordscan hodion_predict_eval -j
+
+      - name: Tải và trích Wikipedia tiếng Việt
+        run: |
+          set -u
+          bytes=$(( ${{ inputs.corpus_mb }} * 1024 * 1024 ))
+          # Không dùng pipefail ở đây: bộ trích DỪNG khi đủ byte, curl và
+          # bzip2 nhận SIGPIPE và thoát khác 0 — đó là hành vi mong muốn.
+          curl -sSL https://dumps.wikimedia.org/viwiki/latest/viwiki-latest-pages-articles.xml.bz2 \
+            | bzip2 -dc \
+            | python3 tools/extract_wikipedia.py "$bytes" > vi-all.txt || true
+          if [ ! -s vi-all.txt ]; then echo "::error::không trích được văn bản nào"; exit 1; fi
+          ls -la vi-all.txt
+
+      - name: Tách phần train và phần để đo
+        run: |
+          set -euo pipefail
+          total=$(wc -l < vi-all.txt)
+          hold=$(( total / 20 ))            # 5% cuối, chưa từng được train
+          head -n $(( total - hold )) vi-all.txt > vi.txt
+          tail -n "$hold" vi-all.txt > eval.txt
+          rm vi-all.txt
+          echo "train $(wc -l < vi.txt) dòng, đo $(wc -l < eval.txt) dòng"
+
+      - name: Dựng bảng âm tiết
+        run: |
+          python3 tools/build_syllables.py --corpus vi.txt \
+            --scan build/engine/hodion_wordscan --out viet-syllables.txt
+
+      - name: Đối chiếu với bảng đang có trong repo
+        run: |
+          python3 - <<'PY'
+          import os
+
+          def load(p):
+              return {l.strip() for l in open(p, encoding="utf-8")
+                      if l.strip() and not l.startswith("#")}
+
+          new = load("viet-syllables.txt")
+          old = load("wordlist/data/viet-syllables.txt")
+          novel = new - old
+          missing = old - new
+          print("bảng mới %d mục, bảng trong repo %d mục" % (len(new), len(old)))
+          print("  có trong bảng mới mà bảng cũ không có: %d (%.1f%%)"
+                % (len(novel), 100.0 * len(novel) / len(new)))
+          print("  có trong bảng cũ mà bảng mới không có: %d" % len(missing))
+          if novel:
+              print("  ví dụ mục mới:", ", ".join(sorted(novel)[:15]))
+
+          # Chỉ chấm theo MỘT chiều, và đó là chỗ dễ đặt sai.
+          #
+          # "Bảng mới phủ được bao nhiêu phần bảng cũ" KHÔNG dùng làm ngưỡng
+          # được: nó tụt theo cỡ kho văn bản, mà cỡ kho thì người chạy tự
+          # chọn. Kho 40 MB cho 4.689 mục — nằm gọn trong bảng cũ, chuỗi
+          # dựng hoàn toàn lành, mà chiều đó chỉ đạt 66%.
+          #
+          # Chiều ngược lại mới là tín hiệu thật: mục LẠ mà bảng cũ chưa
+          # từng có. Kho lớn hơn hay bãi đổ mới thì có thêm vài mục là
+          # thường; nhiều mục lạ nghĩa là lớp lọc đã hỏng và rác đang lọt.
+          share = 100.0 * len(novel) / len(new)
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as f:
+              f.write("### Bảng âm tiết\n\n")
+              f.write("- mới: %d mục, trong repo: %d mục\n" % (len(new), len(old)))
+              f.write("- mục lạ so với repo: %d (%.1f%%)\n\n" % (len(novel), share))
+          if share > 15.0:
+              raise SystemExit(
+                  "::error::quá nhiều mục lạ (%.1f%%) — lớp lọc có vấn đề" % share)
+          PY
+
+      - name: Train mô hình
+        run: |
+          python3 tools/train_ngram.py --corpus vi.txt \
+            --scan build/engine/hodion_wordscan \
+            --preset ${{ inputs.preset }} --out viet-ngram.bin
+
+      - name: Đo trên phần văn bản không dùng để train
+        run: |
+          set -euo pipefail
+          {
+            echo "### Dữ liệu ngôn ngữ — preset \`${{ inputs.preset }}\`"
+            echo
+            echo '```'
+            ./build/wordlist/hodion_predict_eval viet-syllables.txt viet-ngram.bin 2.0 \
+              < eval.txt 2>&1 | tee /dev/stderr
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Băm và ghi nguồn
+        run: |
+          set -euo pipefail
+          mkdir -p data
+          mv viet-syllables.txt viet-ngram.bin data/
+          cp wordlist/data/GIAY-PHEP-DU-LIEU.txt data/
+          cd data
+          sha256sum viet-syllables.txt viet-ngram.bin > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+          ls -la
+
+      - name: Tải lên
+        uses: actions/upload-artifact@v5
+        with:
+          name: HodionKey-data-${{ inputs.preset }}
+          path: data/
+          if-no-files-found: error
